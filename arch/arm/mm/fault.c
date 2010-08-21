@@ -23,6 +23,7 @@
 
 #include "fault.h"
 
+extern int kernel_sec_check_debug_level_high(void);
 
 #ifdef CONFIG_KPROBES
 static inline int notify_page_fault(struct pt_regs *regs, unsigned int fsr)
@@ -145,6 +146,9 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		show_regs(regs);
 	}
 #endif
+
+	if(kernel_sec_check_debug_level_high()==1)
+		panic("User Fault\n");
 
 	tsk->thread.address = addr;
 	tsk->thread.error_code = fsr;

@@ -15,7 +15,7 @@
 #include <linux/string.h>
 #include <linux/platform_device.h>
 
-#include <mach/irqs.h>
+#include <asm/irq.h>
 #include <mach/map.h>
 
 #include <plat/regs-iic.h>

@@ -21,6 +21,7 @@
 #include <linux/leds.h>
 #include <linux/scatterlist.h>
 #include <linux/log2.h>
+#include <linux/wakelock.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -37,6 +38,8 @@
 #include "sdio_ops.h"
 
 static struct workqueue_struct *workqueue;
+static struct wake_lock mmc_delayed_work_wake_lock;
+atomic_t wakelock_refs = ATOMIC_INIT(0);
 
 /*
  * Enabling software CRCs on the data blocks can be a significant (30%)
@@ -52,7 +55,15 @@ module_param(use_spi_crc, bool, 0);
 static int mmc_schedule_delayed_work(struct delayed_work *work,
 				     unsigned long delay)
 {
-	return queue_delayed_work(workqueue, work, delay);
+	int ret;
+
+	wake_lock(&mmc_delayed_work_wake_lock);
+	atomic_inc(&wakelock_refs);
+	ret = queue_delayed_work(workqueue, work, delay);
+	if (!ret && atomic_dec_and_test(&wakelock_refs))	{
+		wake_unlock(&mmc_delayed_work_wake_lock);
+	}
+	return ret;
 }
 
 /*
@@ -73,8 +84,18 @@ static void mmc_flush_scheduled_work(void)
  */
 void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 {
-	struct mmc_command *cmd = mrq->cmd;
-	int err = cmd->error;
+	struct mmc_command *cmd;
+	int err;
+	
+	if(mrq == NULL)
+		return;
+
+	cmd = mrq->cmd;
+	
+	if(cmd == NULL)
+		return;
+
+	err = cmd->error;
 
 	if (err && cmd->retries && mmc_host_is_spi(host)) {
 		if (cmd->resp[0] & R1_SPI_ILLEGAL_COMMAND)
@@ -97,9 +118,18 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 			cmd->resp[2], cmd->resp[3]);
 
 		if (mrq->data) {
+//[NAGSM_Android_HDLNC_SDcard_shinjonghyun_20100507 : add LOG for MoviNAND debuging	
+		/*
 			pr_debug("%s:     %d bytes transferred: %d\n",
 				mmc_hostname(host),
 				mrq->data->bytes_xfered, mrq->data->error);
+		*/
+			if(mrq->data->error != 0){
+			printk(KERN_WARNING "%s:     %d bytes transferred: %d\n",
+					mmc_hostname(host),
+					mrq->data->bytes_xfered, mrq->data->error);
+			}
+//]NAGSM_Android_HDLNC_SDcard_shinjonghyun_20100507 : add LOG for MoviNAND debuging
 		}
 
 		if (mrq->stop) {
@@ -591,7 +621,7 @@ static void mmc_power_up(struct mmc_host *host)
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
 	 */
-	mmc_delay(2);
+	mmc_delay(10);
 
 	host->ios.clock = host->f_min;
 	host->ios.power_mode = MMC_POWER_ON;
@@ -601,7 +631,7 @@ static void mmc_power_up(struct mmc_host *host)
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
 	 */
-	mmc_delay(2);
+	mmc_delay(10);
 }
 
 static void mmc_power_off(struct mmc_host *host)
@@ -737,67 +767,119 @@ void mmc_rescan(struct work_struct *work)
 		container_of(work, struct mmc_host, detect.work);
 	u32 ocr;
 	int err;
+	int extend_wakelock = 0;
+//[NAGSM_Android_HDLNC_SDcard_shinjonghyun_20100504 : mutual exclusion when MoviNand and SD cardusing using this funtion
+	mutex_lock(&host->carddetect_lock); 
+//]NAGSM_Android_HDLNC_SDcard_shinjonghyun_20100504 : mutual exclusion when MoviNand and SD cardusing using this funtion	
 
 	mmc_bus_get(host);
 
-	if (host->bus_ops == NULL) {
-		/*
-		 * Only we can add a new handler, so it's safe to
-		 * release the lock here.
-		 */
-		mmc_bus_put(host);
+	/* if there is a card registered, check whether it is still present */
+	if ((host->bus_ops != NULL) &&
+            host->bus_ops->detect && !host->bus_dead) {
+		if(host->ops->get_cd && host->ops->get_cd(host) == 0) {
+			if(host->bus_ops->remove)
+				host->bus_ops->remove(host);
 
-		if (host->ops->get_cd && host->ops->get_cd(host) == 0)
-			goto out;
-
-		mmc_claim_host(host);
-
-		mmc_power_up(host);
-		mmc_go_idle(host);
-
-		mmc_send_if_cond(host, host->ocr_avail);
-
-		/*
-		 * First we search for SDIO...
-		 */
-		err = mmc_send_io_op_cond(host, 0, &ocr);
-		if (!err) {
-			if (mmc_attach_sdio(host, ocr))
-				mmc_power_off(host);
-			goto out;
+			mmc_claim_host(host);
+			mmc_detach_bus(host);
+			mmc_release_host(host);
 		}
-
-		/*
-		 * ...then normal SD...
-		 */
-		err = mmc_send_app_op_cond(host, 0, &ocr);
-		if (!err) {
-			if (mmc_attach_sd(host, ocr))
-				mmc_power_off(host);
-			goto out;
-		}
-
-		/*
-		 * ...and finally MMC.
-		 */
-		err = mmc_send_op_cond(host, 0, &ocr);
-		if (!err) {
-			if (mmc_attach_mmc(host, ocr))
-				mmc_power_off(host);
-			goto out;
-		}
-
-		mmc_release_host(host);
-		mmc_power_off(host);
-	} else {
-		if (host->bus_ops->detect && !host->bus_dead)
+		else
 			host->bus_ops->detect(host);
 
-		mmc_bus_put(host);
+		/* If the card was removed the bus will be marked
+		 * as dead - extend the wakelock so userspace
+		 * can respond */
+		if (host->bus_dead)
+			extend_wakelock = 1;
 	}
+
+	mmc_bus_put(host);
+
+
+	mmc_bus_get(host);
+
+	printk(KERN_DEBUG "*** DEBUG : start %s (mmc%d)***\n", __func__, host->index);
+
+	/* if there still is a card present, stop here */
+	if (host->bus_ops != NULL) {
+		mmc_bus_put(host);
+		goto out;
+	}
+
+	/* detect a newly inserted card */
+
+	/*
+	 * Only we can add a new handler, so it's safe to
+	 * release the lock here.
+	 */
+	mmc_bus_put(host);
+
+	if (host->ops->get_cd && host->ops->get_cd(host) == 0)
+		goto out;
+
+	mmc_claim_host(host);
+	mmc_power_up(host);
+	mmc_go_idle(host);
+	mmc_send_if_cond(host, host->ocr_avail);
+
+	/*
+	 * First we search for SDIO...
+	 */
+	printk(KERN_DEBUG "*** DEBUG : First we search for SDIO...(%d)***\n", host->index);
+	err = mmc_send_io_op_cond(host, 0, &ocr);
+	if (!err) {
+		if (mmc_attach_sdio(host, ocr))
+			mmc_power_off(host);
+		extend_wakelock = 1;
+		goto out;
+	}
+
+	/*
+	 * ...then normal SD...
+	 */
+	printk(KERN_DEBUG "*** DEBUG : ...then normal SD...(%d) ***\n", host->index);
+	err = mmc_send_app_op_cond(host, 0, &ocr);
+	if (!err) {
+		if (mmc_attach_sd(host, ocr))
+			mmc_power_off(host);
+		extend_wakelock = 1;
+		goto out;
+	}
+
+	/*
+	 * ...and finally MMC.
+	 */
+	printk(KERN_DEBUG "*** DEBUG : ...and finally MMC. (%d)***\n", host->index);
+	err = mmc_send_op_cond(host, 0, &ocr);
+	if (!err) {
+		if (mmc_attach_mmc(host, ocr))
+			mmc_power_off(host);
+		extend_wakelock = 1;
+		goto out;
+	}
+
+	printk(KERN_DEBUG "*** DEBUG : end %s (mmc%d)***\n", __func__, host->index);
+
+	mmc_release_host(host);
+	mmc_power_off(host);
+
 out:
+	if (atomic_dec_return(&wakelock_refs) > 0) {
+		printk(KERN_DEBUG "Another host want the wakelock : %d\n", atomic_read(&wakelock_refs));
+	}
+	else {
+		printk(KERN_DEBUG "mmc%d: wake_lock_timeout 1sec %d\n", host->index, atomic_read(&wakelock_refs));
+		wake_lock_timeout(&mmc_delayed_work_wake_lock, msecs_to_jiffies(1000));
+	}
+
 	if (host->caps & MMC_CAP_NEEDS_POLL)
 		mmc_schedule_delayed_work(&host->detect, HZ);
+//[NAGSM_Android_HDLNC_SDcard_shinjonghyun_20100504 : mutual exclusion when MoviNand and SD cardusing using this funtion
+	mutex_unlock(&host->carddetect_lock); 
+//]NAGSM_Android_HDLNC_SDcard_shinjonghyun_20100504 : mutual exclusion when MoviNand and SD cardusing using this funtion
+
 }
 
 void mmc_start_host(struct mmc_host *host)
@@ -815,6 +897,9 @@ void mmc_stop_host(struct mmc_host *host)
 	spin_unlock_irqrestore(&host->lock, flags);
 #endif
 
+	if (unlikely(cancel_delayed_work(&host->detect)))	{
+		atomic_dec(&wakelock_refs);
+	}
 	mmc_flush_scheduled_work();
 
 	mmc_bus_get(host);
@@ -835,6 +920,8 @@ void mmc_stop_host(struct mmc_host *host)
 
 #ifdef CONFIG_PM
 
+int is_mmc_resume = 0;
+EXPORT_SYMBOL(is_mmc_resume);
 /**
  *	mmc_suspend_host - suspend a host
  *	@host: mmc host
@@ -842,6 +929,9 @@ void mmc_stop_host(struct mmc_host *host)
  */
 int mmc_suspend_host(struct mmc_host *host, pm_message_t state)
 {
+	if (unlikely(cancel_delayed_work(&host->detect)))	{
+		atomic_dec(&wakelock_refs);
+	}
 	mmc_flush_scheduled_work();
 
 	mmc_bus_get(host);
@@ -859,7 +949,12 @@ int mmc_suspend_host(struct mmc_host *host, pm_message_t state)
 	}
 	mmc_bus_put(host);
 
-	mmc_power_off(host);
+	if (host->skip_pwrmgt == 1) {
+		printk("mmc%d:mmc_suspend_host: skip mmc_power_off()\n", host->index);
+		is_mmc_resume = 1;
+	} else {
+		mmc_power_off(host);
+	}
 
 	return 0;
 }
@@ -874,7 +969,12 @@ int mmc_resume_host(struct mmc_host *host)
 {
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
-		mmc_power_up(host);
+		if (host->skip_pwrmgt == 1) {
+			printk("mmc%d:mmc_resume_host: skip mmc_power_up()\n", host->index);
+		} else {
+			mmc_power_up(host);
+		}
+		mmc_select_voltage(host, host->ocr);
 		BUG_ON(!host->bus_ops->resume);
 		host->bus_ops->resume(host);
 	}
@@ -884,7 +984,10 @@ int mmc_resume_host(struct mmc_host *host)
 	 * We add a slight delay here so that resume can progress
 	 * in parallel.
 	 */
-	mmc_detect_change(host, 1);
+	if (host->skip_pwrmgt != 1) {
+		mmc_detect_change(host, 1);
+	}
+	is_mmc_resume = 0;
 
 	return 0;
 }
@@ -893,9 +996,27 @@ EXPORT_SYMBOL(mmc_resume_host);
 
 #endif
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+void mmc_set_embedded_sdio_data(struct mmc_host *host,
+				struct sdio_cis *cis,
+				struct sdio_cccr *cccr,
+				struct sdio_embedded_func *funcs,
+				int num_funcs)
+{
+	host->embedded_sdio_data.cis = cis;
+	host->embedded_sdio_data.cccr = cccr;
+	host->embedded_sdio_data.funcs = funcs;
+	host->embedded_sdio_data.num_funcs = num_funcs;
+}
+
+EXPORT_SYMBOL(mmc_set_embedded_sdio_data);
+#endif
+
 static int __init mmc_init(void)
 {
 	int ret;
+
+	wake_lock_init(&mmc_delayed_work_wake_lock, WAKE_LOCK_SUSPEND, "mmc_delayed_work");
 
 	workqueue = create_singlethread_workqueue("kmmcd");
 	if (!workqueue)
@@ -931,6 +1052,7 @@ static void __exit mmc_exit(void)
 	mmc_unregister_host_class();
 	mmc_unregister_bus();
 	destroy_workqueue(workqueue);
+	wake_lock_destroy(&mmc_delayed_work_wake_lock);
 }
 
 subsys_initcall(mmc_init);

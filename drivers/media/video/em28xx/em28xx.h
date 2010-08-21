@@ -27,6 +27,7 @@
 
 #include <linux/videodev2.h>
 #include <media/videobuf-vmalloc.h>
+#include <media/v4l2-device.h>
 
 #include <linux/i2c.h>
 #include <linux/mutex.h>
@@ -57,7 +58,7 @@
 #define EM2883_BOARD_HAUPPAUGE_WINTV_HVR_950	16
 #define EM2880_BOARD_PINNACLE_PCTV_HD_PRO	17
 #define EM2880_BOARD_HAUPPAUGE_WINTV_HVR_900_R2	18
-#define EM2860_BOARD_POINTNIX_INTRAORAL_CAMERA  19
+#define EM2860_BOARD_SAA711X_REFERENCE_DESIGN	19
 #define EM2880_BOARD_AMD_ATI_TV_WONDER_HD_600   20
 #define EM2800_BOARD_GRABBEEX_USB2800           21
 #define EM2750_BOARD_UNKNOWN			  22
@@ -70,7 +71,6 @@
 #define EM2820_BOARD_VIDEOLOGY_20K14XUSB	  30
 #define EM2821_BOARD_USBGEAR_VD204		  31
 #define EM2821_BOARD_SUPERCOMP_USB_2		  32
-#define EM2821_BOARD_PROLINK_PLAYTV_USB2	  33
 #define EM2860_BOARD_TERRATEC_HYBRID_XS		  34
 #define EM2860_BOARD_TYPHOON_DVD_MAKER		  35
 #define EM2860_BOARD_NETGMBH_CAM		  36
@@ -98,6 +98,15 @@
 #define EM2820_BOARD_COMPRO_VIDEOMATE_FORYOU	  58
 #define EM2883_BOARD_HAUPPAUGE_WINTV_HVR_850	  60
 #define EM2820_BOARD_PROLINK_PLAYTV_BOX4_USB2	  61
+#define EM2820_BOARD_GADMEI_TVR200		  62
+#define EM2860_BOARD_KAIOMY_TVNPC_U2              63
+#define EM2860_BOARD_EASYCAP                      64
+#define EM2820_BOARD_IODATA_GVMVP_SZ		  65
+#define EM2880_BOARD_EMPIRE_DUAL_TV		  66
+#define EM2860_BOARD_TERRATEC_GRABBY		  67
+#define EM2860_BOARD_TERRATEC_AV350		  68
+#define EM2882_BOARD_KWORLD_ATSC_315U		  69
+#define EM2882_BOARD_EVGA_INDTUBE		  70
 
 /* Limits minimum and default number of buffers */
 #define EM28XX_MIN_BUF 4
@@ -109,6 +118,10 @@
 /* Params for validated field */
 #define EM28XX_BOARD_NOT_VALIDATED 1
 #define EM28XX_BOARD_VALIDATED	   0
+
+/* Params for em28xx_cmd() audio */
+#define EM28XX_START_AUDIO      1
+#define EM28XX_STOP_AUDIO       0
 
 /* maximum number of em28xx boards */
 #define EM28XX_MAXBOARDS 4 /*FIXME: should be bigger */
@@ -154,7 +167,8 @@
 */
 
 /* time to wait when stopping the isoc transfer */
-#define EM28XX_URB_TIMEOUT       msecs_to_jiffies(EM28XX_NUM_BUFS * EM28XX_NUM_PACKETS)
+#define EM28XX_URB_TIMEOUT \
+			msecs_to_jiffies(EM28XX_NUM_BUFS * EM28XX_NUM_PACKETS)
 
 /* time in msecs to wait for i2c writes to finish */
 #define EM2800_I2C_WRITE_TIMEOUT 20
@@ -348,6 +362,11 @@ enum em28xx_decoder {
 	EM28XX_SAA711X,
 };
 
+enum em28xx_adecoder {
+	EM28XX_NOADECODER = 0,
+	EM28XX_TVAUDIO,
+};
+
 struct em28xx_board {
 	char *name;
 	int vchannels;
@@ -361,6 +380,7 @@ struct em28xx_board {
 	struct em28xx_reg_seq *dvb_gpio;
 	struct em28xx_reg_seq *suspend_gpio;
 	struct em28xx_reg_seq *tuner_gpio;
+	struct em28xx_reg_seq *mute_gpio;
 
 	unsigned int is_em2800:1;
 	unsigned int has_msp34xx:1;
@@ -371,8 +391,11 @@ struct em28xx_board {
 	unsigned int valid:1;
 
 	unsigned char xclk, i2c_speed;
+	unsigned char radio_addr;
+	unsigned short tvaudio_addr;
 
 	enum em28xx_decoder decoder;
+	enum em28xx_adecoder adecoder;
 
 	struct em28xx_input       input[MAX_EM28XX_INPUT];
 	struct em28xx_input	  radio;
@@ -420,7 +443,7 @@ struct em28xx_audio {
 	unsigned int hwptr_done_capture;
 	struct snd_card            *sndcard;
 
-	int users, shutdown;
+	int users;
 	enum em28xx_stream_state capture_stream;
 	spinlock_t slock;
 };
@@ -445,6 +468,7 @@ struct em28xx {
 	int devno;		/* marks the number of this device */
 	enum em28xx_chip_id chip_id;
 
+	struct v4l2_device v4l2_dev;
 	struct em28xx_board board;
 
 	unsigned int stream_on:1;	/* Locks streams */
@@ -523,7 +547,8 @@ struct em28xx {
 	int num_alt;		/* Number of alternative settings */
 	unsigned int *alt_max_pkt_size;	/* array of wMaxPacketSize */
 	struct urb *urb[EM28XX_NUM_BUFS];	/* urb for isoc transfers */
-	char *transfer_buffer[EM28XX_NUM_BUFS];	/* transfer buffers for isoc transfer */
+	char *transfer_buffer[EM28XX_NUM_BUFS];	/* transfer buffers for isoc
+						   transfer */
 	char urb_buf[URB_MAX_CTRL_SIZE];	/* urb control msg buffer */
 
 	/* helper funcs that call usb_control_msg */
@@ -561,11 +586,9 @@ struct em28xx_ops {
 };
 
 /* Provided by em28xx-i2c.c */
-
-void em28xx_i2c_call_clients(struct em28xx *dev, unsigned int cmd, void *arg);
 void em28xx_do_i2c_scan(struct em28xx *dev);
-int em28xx_i2c_register(struct em28xx *dev);
-int em28xx_i2c_unregister(struct em28xx *dev);
+int  em28xx_i2c_register(struct em28xx *dev);
+int  em28xx_i2c_unregister(struct em28xx *dev);
 
 /* Provided by em28xx-core.c */
 
@@ -597,6 +620,7 @@ int em28xx_init_isoc(struct em28xx *dev, int max_packets,
 		     int num_bufs, int max_pkt_size,
 		     int (*isoc_copy) (struct em28xx *dev, struct urb *urb));
 void em28xx_uninit_isoc(struct em28xx *dev);
+int em28xx_isoc_dvb_max_packetsize(struct em28xx *dev);
 int em28xx_set_mode(struct em28xx *dev, enum em28xx_mode set_mode);
 int em28xx_gpio_set(struct em28xx *dev, struct em28xx_reg_seq *gpio);
 void em28xx_wake_i2c(struct em28xx *dev);
@@ -621,7 +645,7 @@ extern void em28xx_card_setup(struct em28xx *dev);
 extern struct em28xx_board em28xx_boards[];
 extern struct usb_device_id em28xx_id_table[];
 extern const unsigned int em28xx_bcount;
-void em28xx_set_ir(struct em28xx *dev, struct IR_i2c *ir);
+void em28xx_register_i2c_ir(struct em28xx *dev);
 int em28xx_tuner_callback(void *ptr, int component, int command, int arg);
 void em28xx_release_resources(struct em28xx *dev);
 

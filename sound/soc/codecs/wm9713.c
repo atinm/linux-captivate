@@ -1090,8 +1090,8 @@ int wm9713_reset(struct snd_soc_codec *codec, int try_warm)
 	}
 
 	soc_ac97_ops.reset(codec->ac97);
-	if (soc_ac97_ops.warm_reset)
-		soc_ac97_ops.warm_reset(codec->ac97);
+	//if (soc_ac97_ops.warm_reset)
+	//	soc_ac97_ops.warm_reset(codec->ac97);
 	if (ac97_read(codec, 0) != wm9713_reg[0])
 		return -EIO;
 	return 0;
@@ -1101,20 +1101,26 @@ EXPORT_SYMBOL_GPL(wm9713_reset);
 static int wm9713_set_bias_level(struct snd_soc_codec *codec,
 				 enum snd_soc_bias_level level)
 {
+#if !defined (CONFIG_CPU_S5PC100)
 	u16 reg;
+#endif
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
+#if !defined (CONFIG_CPU_S5PC100)
 		/* enable thermal shutdown */
 		reg = ac97_read(codec, AC97_EXTENDED_MID) & 0x1bff;
 		ac97_write(codec, AC97_EXTENDED_MID, reg);
+#endif
 		break;
 	case SND_SOC_BIAS_PREPARE:
 		break;
 	case SND_SOC_BIAS_STANDBY:
+#if !defined (CONFIG_CPU_S5PC100)
 		/* enable master bias and vmid */
 		reg = ac97_read(codec, AC97_EXTENDED_MID) & 0x3bff;
 		ac97_write(codec, AC97_EXTENDED_MID, reg);
+#endif
 		ac97_write(codec, AC97_POWERDOWN, 0x0000);
 		break;
 	case SND_SOC_BIAS_OFF:
@@ -1155,6 +1161,7 @@ static int wm9713_soc_resume(struct platform_device *pdev)
 	int i, ret;
 	u16 *cache = codec->reg_cache;
 
+        wm9713_reset(codec, 0);
 	ret = wm9713_reset(codec, 1);
 	if (ret < 0) {
 		printk(KERN_ERR "could not reset AC97 codec\n");

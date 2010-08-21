@@ -129,6 +129,7 @@ struct usb_function {
 };
 
 int usb_add_function(struct usb_configuration *, struct usb_function *);
+void reorder_usb_function(struct usb_configuration *, int);
 
 int usb_function_deactivate(struct usb_function *);
 int usb_function_activate(struct usb_function *);
@@ -229,6 +230,9 @@ struct usb_configuration {
 };
 
 int usb_add_config(struct usb_composite_dev *,
+		struct usb_configuration *);
+		
+int usb_change_config(struct usb_composite_dev *,
 		struct usb_configuration *);
 
 /**

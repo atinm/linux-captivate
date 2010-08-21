@@ -21,6 +21,17 @@
 struct regulator_dev;
 struct regulator_init_data;
 
+enum regulator_status {
+	REGULATOR_STATUS_OFF,
+	REGULATOR_STATUS_ON,
+	REGULATOR_STATUS_ERROR,
+	/* fast/normal/idle/standby are flavors of "on" */
+	REGULATOR_STATUS_FAST,
+	REGULATOR_STATUS_NORMAL,
+	REGULATOR_STATUS_IDLE,
+	REGULATOR_STATUS_STANDBY,
+};
+
 /**
  * struct regulator_ops - regulator operations.
  *
@@ -34,6 +45,10 @@ struct regulator_init_data;
  * @set_voltage: Set the voltage for the regulator within the range specified.
  *               The driver should select the voltage closest to min_uV.
  * @get_voltage: Return the currently configured voltage for the regulator.
+ * @list_voltage: Return one of the supported voltages, in microvolts; zero
+ *	if the selector indicates a voltage that is unusable on this system;
+ *	or negative errno.  Selectors range from zero to one less than
+ *	regulator_desc.n_voltages.  Voltages may be reported in any order.
  *
  * @set_current_limit: Configure a limit for a current-limited regulator.
  * @get_current_limit: Get the limit for a current-limited regulator.
@@ -54,6 +69,9 @@ struct regulator_init_data;
  */
 struct regulator_ops {
 
+	/* enumerate supported voltages */
+	int (*list_voltage) (struct regulator_dev *, unsigned selector);
+
 	/* get/set regulator voltage */
 	int (*set_voltage) (struct regulator_dev *, int min_uV, int max_uV);
 	int (*get_voltage) (struct regulator_dev *);
@@ -71,6 +89,12 @@ struct regulator_ops {
 	/* get/set regulator operating mode (defined in regulator.h) */
 	int (*set_mode) (struct regulator_dev *, unsigned int mode);
 	unsigned int (*get_mode) (struct regulator_dev *);
+
+	/* report regulator status ... most other accessors report
+	 * control inputs, this reports results of combining inputs
+	 * from Linux (and other sources) with the actual load.
+	 */
+	int (*get_status)(struct regulator_dev *);
 
 	/* get most efficient regulator operating mode for load */
 	unsigned int (*get_optimum_mode) (struct regulator_dev *, int input_uV,
@@ -106,6 +130,7 @@ enum regulator_type {
  *
  * @name: Identifying name for the regulator.
  * @id: Numerical identifier for the regulator.
+ * @n_voltages: Number of selectors available for ops.list_voltage().
  * @ops: Regulator operations table.
  * @irq: Interrupt number for the regulator.
  * @type: Indicates if the regulator is a voltage or current regulator.
@@ -114,14 +139,48 @@ enum regulator_type {
 struct regulator_desc {
 	const char *name;
 	int id;
+	unsigned n_voltages;
 	struct regulator_ops *ops;
 	int irq;
 	enum regulator_type type;
 	struct module *owner;
 };
 
+/*
+ * struct regulator_dev
+ *
+ * Voltage / Current regulator class device. One for each
+ * regulator.
+ *
+ * This should *not* be used directly by anything except the regulator
+ * core and notification injection (which should take the mutex and do
+ * no other direct access).
+ */
+struct regulator_dev {
+	struct regulator_desc *desc;
+	int use_count;
+
+	/* lists we belong to */
+	struct list_head list; /* list of all regulators */
+	struct list_head slist; /* list of supplied regulators */
+
+	/* lists we own */
+	struct list_head consumer_list; /* consumers we supply */
+	struct list_head supply_list; /* regulators we supply */
+
+	struct blocking_notifier_head notifier;
+	struct mutex mutex; /* consumer lock */
+	struct module *owner;
+	struct device dev;
+	struct regulation_constraints *constraints;
+	struct regulator_dev *supply;	/* for tree */
+
+	void *reg_data;		/* regulator_dev data */
+};
+
 struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
-	struct device *dev, void *driver_data);
+	struct device *dev, struct regulator_init_data *init_data,
+	void *driver_data);
 void regulator_unregister(struct regulator_dev *rdev);
 
 int regulator_notifier_call_chain(struct regulator_dev *rdev,

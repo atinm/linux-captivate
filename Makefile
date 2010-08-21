@@ -190,8 +190,10 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
-ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?=
+ARCH		:= arm
+CROSS_COMPILE   := $(shell if [ -f .cross_compile ]; then \
+                                cat .cross_compile; \
+                                fi)
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -536,6 +538,9 @@ endif
 # Arch Makefiles may override this setting
 KBUILD_CFLAGS += $(call cc-option, -fno-stack-protector)
 
+# KERNEL MAKEFILE modify by mk93.lee for buildroot
+KBUILD_CFLAGS      += -I$(PRJROOT)/modules/include
+
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else
@@ -557,7 +562,7 @@ KBUILD_CFLAGS += $(call cc-option, -fno-inline-functions-called-once)
 endif
 
 # arch Makefile may override CC so keep this after arch Makefile is included
-NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
+NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include) -Dlinux
 CHECKFLAGS     += $(NOSTDINC_FLAGS)
 
 # warn about C99 declaration after statement
@@ -591,10 +596,10 @@ ifneq ($(KCFLAGS),)
 endif
 
 # Use --build-id when available.
-LDFLAGS_BUILD_ID = $(patsubst -Wl$(comma)%,%,\
-			      $(call ld-option, -Wl$(comma)--build-id,))
-LDFLAGS_MODULE += $(LDFLAGS_BUILD_ID)
-LDFLAGS_vmlinux += $(LDFLAGS_BUILD_ID)
+#LDFLAGS_BUILD_ID = $(patsubst -Wl$(comma)%,%,\
+#			      $(call ld-option, -Wl$(comma)--build-id,))
+#LDFLAGS_MODULE += $(LDFLAGS_BUILD_ID)
+#LDFLAGS_vmlinux += $(LDFLAGS_BUILD_ID)
 
 # Default kernel image to build when no specific target is given.
 # KBUILD_IMAGE may be overruled on the command line or
@@ -614,8 +619,15 @@ export	INSTALL_PATH ?= /boot
 # makefile but the argument can be passed to make if needed.
 #
 
+# KERNEL MAKEFILE modify by mk93.lee for buildroot
+INSTALL_MOD_PATH := $(PRJROOT)/root
+MODINST    := $(INSTALL_MOD_PATH)/lib/modules
+
 MODLIB	= $(INSTALL_MOD_PATH)/lib/modules/$(KERNELRELEASE)
 export MODLIB
+
+# KERNEL MAKEFILE modify by mk93.lee for buildroot
+export MODINST
 
 #
 #  INSTALL_MOD_STRIP, if defined, will cause modules to be

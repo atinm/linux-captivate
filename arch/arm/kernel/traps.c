@@ -415,8 +415,15 @@ do_cache_op(unsigned long start, unsigned long end, int flags)
 			start = vma->vm_start;
 		if (end > vma->vm_end)
 			end = vma->vm_end;
-
+#if 1
+    // modified by jamie (2009.06.23)
+    // now, __cpuc_coherent_user_range() doesn't work well.
+    // so, call dmac_clean_range() temporarily instead 
+    // until __cpuc_coherent_user_range() will be modified.
+        dmac_clean_range(start, end);
+#else
 		flush_cache_user_range(vma, start, end);
+#endif
 	}
 }
 

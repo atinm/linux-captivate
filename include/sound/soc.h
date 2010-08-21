@@ -363,6 +363,7 @@ struct snd_soc_card {
 	struct list_head list;
 
 	int instantiated;
+	 int lp_mode; /* if this card is operating in LowPower mode, where SUSPEND/RESUME doesn't matter */
 
 	int (*probe)(struct platform_device *pdev);
 	int (*remove)(struct platform_device *pdev);

@@ -24,6 +24,10 @@
 #include "sdio_ops.h"
 #include "sdio_cis.h"
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+#include <linux/mmc/sdio_ids.h>
+#endif
+
 static int sdio_read_fbr(struct sdio_func *func)
 {
 	int ret;
@@ -222,6 +226,8 @@ static void mmc_sdio_detect(struct mmc_host *host)
 {
 	int err;
 
+	//printk("mmc_sdio_detect:\n");
+
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
@@ -235,6 +241,7 @@ static void mmc_sdio_detect(struct mmc_host *host)
 	mmc_release_host(host);
 
 	if (err) {
+//		printk("mmc_sdio_detect: failed to mmc_select_card. err=%d\n", err);
 		mmc_sdio_remove(host);
 
 		mmc_claim_host(host);
@@ -243,10 +250,83 @@ static void mmc_sdio_detect(struct mmc_host *host)
 	}
 }
 
+static void mmc_sdio_suspend(struct mmc_host *host)
+{
+#if 0
+	int i, err=0;
+	
+	BUG_ON(!host);
+	BUG_ON(!host->card);
+	
+    for (i = 0; i < host->card->sdio_funcs; i++) {
+        struct sdio_func *func = host->card->sdio_func[i];
+		printk("mmc_sdio_suspend: func[%d]=0x%x\n", i, func);
+        if (func && sdio_func_present(func) && func->dev.driver) {
+            const struct dev_pm_ops *pmops = func->dev.driver->pm;
+            if (!pmops || !pmops->suspend || !pmops->resume) {
+                /* force removal of entire card in that case */
+                err = -ENOSYS;
+            } else
+                err = pmops->suspend(&func->dev);
+            if (err)
+                break;
+        }
+    }
+	
+    while (err && --i >= 0) {
+        struct sdio_func *func = host->card->sdio_func[i];
+        if (func && sdio_func_present(func) && func->dev.driver) {
+            const struct dev_pm_ops *pmops = func->dev.driver->pm;
+			printk("mmc_sdio_suspend: pmops=0x%x, suspend=0x%x, resume=0x%x\n", pmops, pmops->suspend, pmops->resume);
+			if (pmops && pmops->resume)
+	            pmops->resume(&func->dev);
+        }
+    }
+#endif
+}
+
+static void mmc_sdio_resume(struct mmc_host *host)
+{
+#if 0
+	int i, err=0;
+	
+	BUG_ON(!host);
+	BUG_ON(!host->card);
+
+	/*
+	 * If the card looked to be the same as before suspending, then	 
+	 * we proceed to resume all card functions.  If one of them returns	 
+	 * an error then we simply return that error to the core and the	 
+	 * card will be redetected as new.  It is the responsibility of	 
+	 * the function driver to perform further tests with the extra	 
+	 * knowledge it has of the card to confirm the card is indeed the	 
+	 * same as before suspending (same MAC address for network cards,	 
+	 * etc.) and return an error otherwise.	 
+	 */	
+	for (i = 0; !err && i < host->card->sdio_funcs; i++) 
+	{
+		struct sdio_func *func = host->card->sdio_func[i];
+		printk("mmc_sdio_resume: func[%d]=0x%x\n", i, func);
+		if (func && sdio_func_present(func) && func->dev.driver) {
+			const struct dev_pm_ops *pmops = func->dev.driver->pm;
+			printk("mmc_sdio_resume: pmops=0x%x, suspend=0x%x, resume=0x%x\n", pmops, pmops->suspend, pmops->resume);
+			/*
+			if (pmops && pmops->resume)
+				err = pmops->resume(&func->dev);
+			else
+				printk("mmc_sdio_resume: pmops=0x%x, pmops->resume=0x%x\n", pmops, pmops->resume);
+			*/
+		}
+	}
+#endif
+}
+
 
 static const struct mmc_bus_ops mmc_sdio_ops = {
-	.remove = mmc_sdio_remove,
-	.detect = mmc_sdio_detect,
+	.remove  = mmc_sdio_remove,
+	.detect  = mmc_sdio_detect,
+	.suspend = mmc_sdio_suspend,
+	.resume  = mmc_sdio_resume,
 };
 
 
@@ -314,6 +394,11 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 	 */
 	funcs = (ocr & 0x70000000) >> 28;
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	if (host->embedded_sdio_data.funcs)
+		funcs = host->embedded_sdio_data.num_funcs;
+#endif
+
 	/*
 	 * Allocate card structure.
 	 */
@@ -351,17 +436,33 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 	/*
 	 * Read the common registers.
 	 */
-	err = sdio_read_cccr(card);
-	if (err)
-		goto remove;
 
-	/*
-	 * Read the common CIS tuples.
-	 */
-	err = sdio_read_common_cis(card);
-	if (err)
-		goto remove;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	if (host->embedded_sdio_data.cccr)
+		memcpy(&card->cccr, host->embedded_sdio_data.cccr, sizeof(struct sdio_cccr));
+	else {
+#endif
+		err = sdio_read_cccr(card);
+		if (err)
+			goto remove;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	}
+#endif
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	if (host->embedded_sdio_data.cis)
+		memcpy(&card->cis, host->embedded_sdio_data.cis, sizeof(struct sdio_cis));
+	else {
+#endif
+		/*
+		 * Read the common CIS tuples.
+		 */
+		err = sdio_read_common_cis(card);
+		if (err)
+			goto remove;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	}
+#endif
 	/*
 	 * Switch to high-speed (if supported).
 	 */
@@ -372,6 +473,7 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 	/*
 	 * Change to the card's maximum speed.
 	 */
+#if 0	 
 	if (mmc_card_highspeed(card)) {
 		/*
 		 * The SDIO specification doesn't mention how
@@ -383,7 +485,10 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 	} else {
 		mmc_set_clock(host, card->cis.max_dtr);
 	}
-
+#else
+	printk("mmc_attach_sdio: [%s] Set MMC Clock to 24MHz\n", mmc_hostname(host));
+	mmc_set_clock(host, 24000000);
+#endif
 	/*
 	 * Switch to wider bus (if supported).
 	 */
@@ -395,9 +500,27 @@ int mmc_attach_sdio(struct mmc_host *host, u32 ocr)
 	 * Initialize (but don't add) all present functions.
 	 */
 	for (i = 0;i < funcs;i++) {
-		err = sdio_init_func(host->card, i + 1);
-		if (err)
-			goto remove;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+		if (host->embedded_sdio_data.funcs) {
+			struct sdio_func *tmp;
+
+			tmp = sdio_alloc_func(host->card);
+			if (IS_ERR(tmp))
+				goto remove;
+			tmp->num = (i + 1);
+			card->sdio_func[i] = tmp;
+			tmp->class = host->embedded_sdio_data.funcs[i].f_class;
+			tmp->max_blksize = host->embedded_sdio_data.funcs[i].f_maxblksize;
+			tmp->vendor = card->cis.vendor;
+			tmp->device = card->cis.device;
+		} else {
+#endif
+			err = sdio_init_func(host->card, i + 1);
+			if (err)
+				goto remove;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+		}
+#endif
 	}
 
 	mmc_release_host(host);
@@ -439,3 +562,61 @@ err:
 	return err;
 }
 
+int sdio_reset_comm(struct mmc_card *card)
+{
+	struct mmc_host *host = card->host;
+	u32 ocr;
+	int err;
+
+	printk("%s():\n", __func__);
+	mmc_claim_host(host);
+
+	mmc_go_idle(host);
+
+	mmc_set_clock(host, host->f_min);
+
+	err = mmc_send_io_op_cond(host, 0, &ocr);
+	if (err)
+		goto err;
+
+	host->ocr = mmc_select_voltage(host, ocr);
+	if (!host->ocr) {
+		err = -EINVAL;
+		goto err;
+	}
+
+	err = mmc_send_io_op_cond(host, host->ocr, &ocr);
+	if (err)
+		goto err;
+
+	if (mmc_host_is_spi(host)) {
+		err = mmc_spi_set_crc(host, use_spi_crc);
+		if (err)
+		goto err;
+	}
+
+	if (!mmc_host_is_spi(host)) {
+		err = mmc_send_relative_addr(host, &card->rca);
+		if (err)
+			goto err;
+		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
+	}
+	if (!mmc_host_is_spi(host)) {
+		err = mmc_select_card(card);
+		if (err)
+			goto err;
+	}
+
+	mmc_set_clock(host, card->cis.max_dtr);
+	err = sdio_enable_wide(card);
+	if (err)
+		goto err;
+	mmc_release_host(host);
+	return 0;
+err:
+	printk("%s: Error resetting SDIO communications (%d)\n",
+	       mmc_hostname(host), err);
+	mmc_release_host(host);
+	return err;
+}
+EXPORT_SYMBOL(sdio_reset_comm);

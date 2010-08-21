@@ -14,7 +14,10 @@
 
 #ifndef __ASM_ARCH_VMALLOC_H
 #define __ASM_ARCH_VMALLOC_H
-
-#define VMALLOC_END	  (0xE0000000)
+#ifdef CONFIG_DDR_RAM_3G
+#define VMALLOC_END	  (0xfA000000)
+#else
+#define VMALLOC_END	  (0xF0000000)
+#endif
 
 #endif /* __ASM_ARCH_VMALLOC_H */

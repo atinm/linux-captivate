@@ -359,6 +359,8 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 		void __user *, arg)
 {
 	char buffer[256];
+	void __iomem * INFORM4;
+	INFORM4 = ioremap_nocache(0xe010f010,0x100);
 
 	/* We only trust the superuser with rebooting the system. */
 	if (!capable(CAP_SYS_BOOT))
@@ -381,6 +383,10 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 	lock_kernel();
 	switch (cmd) {
 	case LINUX_REBOOT_CMD_RESTART:
+		if(arg == 0x00001111) {*(volatile unsigned *) INFORM4 = 0x10101010;}
+		else if(arg == 0x00002222){ *(volatile unsigned *) INFORM4 = 0x20202020;}
+		else if(arg == 0x00003333){ *(volatile unsigned *) INFORM4 = 0x30303030;}
+		else if(arg == 0x00004444){ *(volatile unsigned *) INFORM4 = 0x40404040;}
 		kernel_restart(NULL);
 		break;
 

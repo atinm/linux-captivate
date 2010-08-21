@@ -1519,7 +1519,10 @@ register_framebuffer(struct fb_info *fb_info)
 	registered_fb[i] = fb_info;
 
 	event.info = fb_info;
-	fb_notifier_call_chain(FB_EVENT_FB_REGISTERED, &event);
+	if (!lock_fb_info(fb_info))
+                return -ENODEV;
+//	fb_notifier_call_chain(FB_EVENT_FB_REGISTERED, &event);
+	unlock_fb_info(fb_info);	
 	return 0;
 }
 
@@ -1553,8 +1556,11 @@ unregister_framebuffer(struct fb_info *fb_info)
 		goto done;
 	}
 
+	if (!lock_fb_info(fb_info))
+                return -ENODEV;
 	event.info = fb_info;
 	ret = fb_notifier_call_chain(FB_EVENT_FB_UNBIND, &event);
+	unlock_fb_info(fb_info);
 
 	if (ret) {
 		ret = -EINVAL;
@@ -1587,7 +1593,8 @@ done:
 void fb_set_suspend(struct fb_info *info, int state)
 {
 	struct fb_event event;
-
+	if(!lock_fb_info(info))
+		return;
 	event.info = info;
 	if (state) {
 		fb_notifier_call_chain(FB_EVENT_SUSPEND, &event);
@@ -1596,6 +1603,7 @@ void fb_set_suspend(struct fb_info *info, int state)
 		info->state = FBINFO_STATE_RUNNING;
 		fb_notifier_call_chain(FB_EVENT_RESUME, &event);
 	}
+	unlock_fb_info(info);
 }
 
 /**
@@ -1665,8 +1673,11 @@ int fb_new_modelist(struct fb_info *info)
 	err = 1;
 
 	if (!list_empty(&info->modelist)) {
+		if(!lock_fb_info(info))
+			return -ENODEV;
 		event.info = info;
 		err = fb_notifier_call_chain(FB_EVENT_NEW_MODELIST, &event);
+		unlock_fb_info(info);
 	}
 
 	return err;

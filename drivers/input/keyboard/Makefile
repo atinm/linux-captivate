@@ -28,3 +28,11 @@ obj-$(CONFIG_KEYBOARD_HP7XX)		+= jornada720_kbd.o
 obj-$(CONFIG_KEYBOARD_MAPLE)		+= maple_keyb.o
 obj-$(CONFIG_KEYBOARD_BFIN)		+= bf54x-keys.o
 obj-$(CONFIG_KEYBOARD_SH_KEYSC)		+= sh_keysc.o
+obj-$(CONFIG_KEYPAD_S3C)                += s3c-keypad.o
+obj-$(CONFIG_KEYPAD_MELFAS_TOUCH)                += melfas-touchkey.o
+obj-$(CONFIG_KEYPAD_MELFAS_TOUCH)                += melfas_download.o
+obj-$(CONFIG_KEYPAD_CYPRESS_TOUCH)                += cypress/cypress-touchkey.o
+obj-$(CONFIG_KEYPAD_CYPRESS_TOUCH)                += cypress/issp_driver_routines.o
+obj-$(CONFIG_KEYPAD_CYPRESS_TOUCH)                += cypress/issp_main.o
+obj-$(CONFIG_KEYPAD_CYPRESS_TOUCH)                += cypress/issp_routines.o
+

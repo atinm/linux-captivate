@@ -15,6 +15,37 @@
 #ifndef __PLAT_S3C_FB_H
 #define __PLAT_S3C_FB_H __FILE__
 
+#ifdef CONFIG_FB_S3C
+
+#define FB_SWAP_WORD	(1 << 24)
+#define FB_SWAP_HWORD	(1 << 16)
+#define FB_SWAP_BYTE	(1 << 8)
+#define FB_SWAP_BIT	(1 << 0)
+
+struct platform_device;
+
+struct s3c_platform_fb {
+	int		hw_ver;
+	const char	clk_name[16];
+	int		nr_wins;
+	int		nr_buffers[5];
+	int		default_win;
+	int		swap;
+
+	void		(*cfg_gpio)(struct platform_device *dev);
+	int		(*backlight_on)(struct platform_device *dev);
+	int		(*reset_lcd)(struct platform_device *dev);
+};
+
+extern void s3cfb_set_platdata(struct s3c_platform_fb *fimd);
+
+/* defined by architecture to configure gpio */
+extern void s3cfb_cfg_gpio(struct platform_device *pdev);
+extern int s3cfb_backlight_on(struct platform_device *pdev);
+extern int s3cfb_reset_lcd(struct platform_device *pdev);
+
+#else
+
 /**
  * struct s3c_fb_pd_win - per window setup data
  * @win_mode: The display parameters to initialise (not for window 0)
@@ -69,5 +100,7 @@ extern void s3c_fb_set_platdata(struct s3c_fb_platdata *pd);
  * Initialise the GPIO for an 24bpp LCD display on the RGB interface.
  */
 extern void s3c64xx_fb_gpio_setup_24bpp(void);
+
+#endif
 
 #endif /* __PLAT_S3C_FB_H */

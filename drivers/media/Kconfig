@@ -88,7 +88,8 @@ config DVB_CORE
 
 config VIDEO_MEDIA
 	tristate
-	default (DVB_CORE && (VIDEO_DEV = n)) || (VIDEO_DEV && (DVB_CORE = n)) || (DVB_CORE && VIDEO_DEV)
+	#default (DVB_CORE && (VIDEO_DEV = n)) || (VIDEO_DEV && (DVB_CORE = n)) || (DVB_CORE && VIDEO_DEV)
+	default n
 
 comment "Multimedia drivers"
 

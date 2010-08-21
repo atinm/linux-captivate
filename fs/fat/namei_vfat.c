@@ -603,6 +603,15 @@ static int vfat_build_slots(struct inode *dir, const unsigned char *name,
 	int err, ulen, usize, i;
 	loff_t offset;
 
+#if 1	/* 2009-06-25/ Kyo.oh/ workaround code for hiding /sdcard/sd/ */
+	unsigned char InternalHiddneDir=false;
+	if( strcmp(name,"sd")==0 )
+	{
+		InternalHiddneDir=true;
+		printk(KERN_ERR "FAT: vfat_build_slots name [%s] hidden=%d\n",name,InternalHiddneDir);
+	}
+#endif	
+
 	*nr_slots = 0;
 
 	uname = __getname();
@@ -651,6 +660,12 @@ shortname:
 	(*nr_slots)++;
 	memcpy(de->name, msdos_name, MSDOS_NAME);
 	de->attr = is_dir ? ATTR_DIR : ATTR_ARCH;
+#if 1	/* 2009-06-06/ Kyo.oh/ workaround code for hiding /sdcard/sd/ */
+	if(InternalHiddneDir)
+	{
+		de->attr |=ATTR_HIDDEN;
+	}
+#endif	
 	de->lcase = lcase;
 	fat_time_unix2fat(sbi, ts, &time, &date, &time_cs);
 	de->time = de->ctime = time;
@@ -1030,7 +1045,7 @@ error_inode:
 		sinfo.bh = NULL;
 	}
 	if (corrupt < 0) {
-		fat_fs_panic(new_dir->i_sb,
+		fat_fs_error(new_dir->i_sb,
 			     "%s: Filesystem corrupted (i_pos %lld)",
 			     __func__, sinfo.i_pos);
 	}

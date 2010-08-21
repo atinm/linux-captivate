@@ -22,8 +22,20 @@
 #include <linux/freezer.h>
 #include <linux/vmstat.h>
 #include <linux/syscalls.h>
+#include <linux/cpufreq.h>
+
+#ifdef CONFIG_CPU_FREQ
+#include <plat/s5pc11x-dvfs.h>
+#endif
 
 #include "power.h"
+
+#include <asm/gpio.h>
+
+static void do_dvfsunlock_timer(struct work_struct *work);
+static DEFINE_MUTEX (dvfslock_ctrl_mutex);
+static DECLARE_DELAYED_WORK(dvfslock_crtl_unlock_work, do_dvfsunlock_timer);
+
 
 DEFINE_MUTEX(pm_mutex);
 
@@ -190,6 +202,90 @@ static void suspend_test_finish(const char *label)
 
 /* This is just an arbitrary number */
 #define FREE_PAGE_NUMBER (100)
+
+
+
+
+
+
+
+
+
+/**
+ * store_dvfslock_ctrl - make dvfs lock through application
+ */
+extern int g_dbs_timer_started;
+int dvfsctrl_locked;
+int gdDvfsctrl = 0;
+static ssize_t dvfslock_ctrl(const char *buf, size_t count)
+{
+	unsigned int ret = -EINVAL;
+	int dlevel;
+	int dtime_msec;
+	
+	//mutex_lock(&dvfslock_ctrl_mutex);
+	ret = sscanf(buf, "%u", &gdDvfsctrl);
+	if (ret != 1)
+		return -EINVAL;
+	
+	if (!g_dbs_timer_started)	 return -EINVAL;
+	if (gdDvfsctrl == 0) {
+		if (dvfsctrl_locked) {
+			s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_6);
+			dvfsctrl_locked = 0;
+			return -EINVAL;		
+		} else {
+			return -EINVAL;		
+		}
+	}
+	
+	if (dvfsctrl_locked) return 0;
+		
+	dlevel = gdDvfsctrl & 0xffff0000;
+	dtime_msec = gdDvfsctrl & 0x0000ffff;
+	if (dtime_msec <16) dtime_msec=16;
+	
+	if (dtime_msec  == 0) return -EINVAL;
+	if(dlevel) dlevel = 1;
+	
+	//printk("+++++DBG dvfs lock level=%d, time=%d, scanVal=%08x\n",dlevel,dtime_msec, gdDvfsctrl);
+	s5pc110_lock_dvfs_high_level(DVFS_LOCK_TOKEN_6, dlevel);
+	dvfsctrl_locked=1;
+
+
+	schedule_delayed_work(&dvfslock_crtl_unlock_work, dtime_msec);
+
+	//mutex_unlock(&dvfslock_ctrl_mutex);
+	return -EINVAL;
+}
+
+static void do_dvfsunlock_timer(struct work_struct *work) {
+	//printk("----DBG dvfs unlock\n");
+	dvfsctrl_locked = 0;	
+	s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_6);
+}
+
+
+ssize_t dvfslock_ctrl_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "0x%08x\n", gdDvfsctrl);
+
+}
+
+ssize_t dvfslock_ctrl_store(
+	struct kobject *kobj, struct kobj_attribute *attr,
+	const char *buf, size_t n)
+{
+	dvfslock_ctrl(buf, 0);
+	return n;
+}
+
+
+
+
+
+
 
 static struct platform_suspend_ops *suspend_ops;
 
@@ -392,6 +488,9 @@ static void suspend_finish(void)
 
 
 static const char * const pm_states[PM_SUSPEND_MAX] = {
+#ifdef CONFIG_EARLYSUSPEND
+	[PM_SUSPEND_ON]		= "on",
+#endif
 	[PM_SUSPEND_STANDBY]	= "standby",
 	[PM_SUSPEND_MEM]	= "mem",
 };
@@ -407,6 +506,15 @@ static inline int valid_state(suspend_state_t state)
 }
 
 
+#ifdef CONFIG_CPU_FREQ
+#define SLEEP_CPUFREQ_CONSERVATIVE
+#define SLEEP_CPUFREQ_MANUAL_SET
+static bool gbGovernorTransition = false;
+static bool userSpaceGovernor=false;
+static unsigned int g_cpuspeed=0;
+extern int s5pc110_pm_target(unsigned int target_freq);
+extern unsigned int s5pc110_getspeed(unsigned int cpu);
+#endif
 /**
  *	enter_state - Do common work of entering low-power state.
  *	@state:		pm_state structure for state we're entering.
@@ -420,12 +528,44 @@ static inline int valid_state(suspend_state_t state)
 static int enter_state(suspend_state_t state)
 {
 	int error;
+	extern unsigned long set1_gpio;
+	extern unsigned long set2_gpio;
 
 	if (!valid_state(state))
 		return -ENODEV;
 
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
+
+#ifdef CONFIG_CPU_FREQ
+#ifdef SLEEP_CPUFREQ_CONSERVATIVE
+	// change cpufreq governor to performance
+	// if conservative governor
+#ifdef SLEEP_CPUFREQ_MANUAL_SET
+	if(is_userspace_gov())
+	{
+		g_cpuspeed = s5pc110_getspeed(0);
+		printk("userspace cpu speed %d \n",g_cpuspeed);
+		userSpaceGovernor=true;
+    	}
+	else if(is_conservative_gov())
+	{
+		s5pc110_lock_dvfs_high_level(DVFS_LOCK_TOKEN_5, 0);
+		gbGovernorTransition=true;
+	}
+#else//SLEEP_CPUFREQ_MANUAL_SET
+	if(is_conservative_gov()) {
+		s5pc110_lock_dvfs_high_level(DVFS_LOCK_TOKEN_5, 0);
+		gbGovernorTransition = true;
+		gpio_set_value(set2_gpio, 0);
+  		gpio_set_value(set1_gpio, 1);
+	}
+#endif//SLEEP_CPUFREQ_MANUAL_SET	
+#else//SLEEP_CPUFREQ_CONSERVATIVE
+	cpufreq_direct_set_policy(0, "userspace");
+	cpufreq_direct_store_scaling_setspeed(0, "800000", 0);
+#endif//SLEEP_CPUFREQ_CONSERVATIVE
+#endif//CONFIG_CPU_FREQ
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
@@ -447,6 +587,33 @@ static int enter_state(suspend_state_t state)
 	suspend_finish();
  Unlock:
 	mutex_unlock(&pm_mutex);
+#ifdef CONFIG_CPU_FREQ
+#ifdef SLEEP_CPUFREQ_CONSERVATIVE
+#ifdef SLEEP_CPUFREQ_MANUAL_SET
+	if(userSpaceGovernor)
+	{
+		s5pc110_pm_target(g_cpuspeed);
+		printk("recover userspace cpu speed %d \n",g_cpuspeed);
+		g_cpuspeed=0;
+		userSpaceGovernor=false;
+	}
+	if(gbGovernorTransition)
+	{
+		s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_5);
+		gbGovernorTransition=false;
+	}	
+#else//SLEEP_CPUFREQ_MANUAL_SET
+	// change cpufreq to original one
+	if(gbGovernorTransition) {
+		s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_5);
+		gbGovernorTransition = false;
+	}
+#endif//SLEEP_CPUFREQ_MANUAL_SET	
+#else//SLEEP_CPUFREQ_CONSERVATIVE
+	cpufreq_direct_set_policy(0, "conservative");
+#endif//SLEEP_CPUFREQ_CONSERVATIVE
+#endif//CONFIG_CPU_FREQ
+
 	return error;
 }
 
@@ -509,7 +676,11 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 			   const char *buf, size_t n)
 {
 #ifdef CONFIG_SUSPEND
+#ifdef CONFIG_EARLYSUSPEND
+	suspend_state_t state = PM_SUSPEND_ON;
+#else
 	suspend_state_t state = PM_SUSPEND_STANDBY;
+#endif
 	const char * const *s;
 #endif
 	char *p;
@@ -531,7 +702,14 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 			break;
 	}
 	if (state < PM_SUSPEND_MAX && *s)
+#ifdef CONFIG_EARLYSUSPEND
+		if (state == PM_SUSPEND_ON || valid_state(state)) {
+			error = 0;
+			request_suspend_state(state);
+		}
+#else
 		error = enter_state(state);
+#endif
 #endif
 
  Exit:
@@ -565,6 +743,12 @@ pm_trace_store(struct kobject *kobj, struct kobj_attribute *attr,
 power_attr(pm_trace);
 #endif /* CONFIG_PM_TRACE */
 
+#ifdef CONFIG_USER_WAKELOCK
+power_attr(wake_lock);
+power_attr(wake_unlock);
+#endif
+power_attr(dvfslock_ctrl);
+
 static struct attribute * g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -573,6 +757,11 @@ static struct attribute * g[] = {
 #if defined(CONFIG_PM_SLEEP) && defined(CONFIG_PM_DEBUG)
 	&pm_test_attr.attr,
 #endif
+#ifdef CONFIG_USER_WAKELOCK
+	&wake_lock_attr.attr,
+	&wake_unlock_attr.attr,
+#endif
+	&dvfslock_ctrl_attr.attr,
 	NULL,
 };
 

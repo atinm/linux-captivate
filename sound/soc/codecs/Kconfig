@@ -26,6 +26,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM8350 if MFD_WM8350
 	select SND_SOC_WM8510 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_WM8580 if I2C
+	select SND_SOC_WM8580_PCM if I2C
 	select SND_SOC_WM8728 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_WM8731 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_WM8750 if SND_SOC_I2C_AND_SPI
@@ -34,6 +35,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM8903 if I2C
 	select SND_SOC_WM8971 if I2C
 	select SND_SOC_WM8990 if I2C
+	select SND_SOC_WM8994 if I2C
 	select SND_SOC_WM9712 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
         help
@@ -120,6 +122,9 @@ config SND_SOC_WM8510
 config SND_SOC_WM8580
 	tristate
 
+config SND_SOC_WM8580_PCM
+        tristate
+
 config SND_SOC_WM8728
 	tristate
 
@@ -142,6 +147,9 @@ config SND_SOC_WM8971
 	tristate
 
 config SND_SOC_WM8990
+	tristate
+
+config SND_SOC_WM8994
 	tristate
 
 config SND_SOC_WM9712

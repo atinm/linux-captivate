@@ -6,7 +6,7 @@
 
 config PLAT_S3C
 	bool
-	depends on ARCH_S3C2410 || ARCH_S3C24A0 || ARCH_S3C64XX
+	depends on ARCH_S3C2410 || ARCH_S3C24A0 || ARCH_S3C64XX || ARCH_S5PC1XX || ARCH_S5PC11X
 	default y
 	select NO_IOPORT
 	help
@@ -106,6 +106,22 @@ config S3C_LOWLEVEL_UART_PORT
 	  this configuration should be between zero and two. The port
 	  must have been initialised by the boot-loader before use.
 
+config SPLIT_ROOT_FILESYSTEM
+	bool "S3C MTD has 4 partitions"
+	depends on (ARCH_S3C64XX || ARCH_S5PC1XX || ARCH_S5PC11X || ARCH_S5P64XX) && MTD
+	help
+	  Choose this if you want to use 4 mtd partitions
+
+config SPLIT_ROOT_FOR_ANDROID
+       bool "S3C MTD has partitions for ANDROID"
+       depends on (ARCH_S3C64XX || ARCH_S5PC1XX) && MTD
+       help
+         Choose this if you want to use 4 mtd partitions
+         Choose this if you want to use the partitions for android system
+
+
+
+
 # options for gpiolib support
 
 config S3C_GPIO_SPACE
@@ -150,22 +166,65 @@ config S3C_GPIO_CFG_S3C64XX
 	  Internal configuration to enable S3C64XX style GPIO configuration
 	  functions.
 
+config S3C_GPIO_CFG_S5PC1XX
+	bool
+	help
+	  Internal configuration to enable S5PC1XX style GPIO configuration
+	  functions.
+
+config S3C_GPIO_CFG_S5P64XX
+	bool
+	help
+	  Internal configuration to enable S5P64XX style GPIO configuration
+	  functions.
 # device definitions to compile in
 
 config S3C_DEV_HSMMC
 	bool
 	help
-	  Compile in platform device definitions for HSMMC code
+	  Compile in platform device definitions for HSMMC channel 0
 
 config S3C_DEV_HSMMC1
 	bool
 	help
 	  Compile in platform device definitions for HSMMC channel 1
 
-config S3C_DEV_I2C1
+config S3C_DEV_HSMMC2
 	bool
 	help
+	  Compile in platform device definitions for HSMMC channel 2
+
+config S3C_DEV_HSMMC3
+	bool
+	help
+	  Compile in platform device definitions for HSMMC channel 3	  
+
+config S3C_DEV_I2C1
+	bool
+	default y
+	help
 	  Compile in platform device definitions for I2C channel 1
+
+config S3C_DEV_I2C2
+	bool
+	default y
+	help
+	  Compile in platform device definitions for I2C channel 2
+
+config S3C_DEV_I2C3
+	bool
+	help
+	  Compile in platform device definitions for I2C channel(HDMI PHY)
+
+config S3C_DMA_PL080
+	bool
+	help
+	  PL080 DMA supported
+
+config S3C_DMA_PL330
+	bool
+	help
+	  PL330 DMA supported
 
 config S3C_DEV_FB
 	bool

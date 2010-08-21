@@ -38,13 +38,15 @@
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <linux/spinlock.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 
 #include <mach/hardware.h>
+#include <mach/map.h>
 #include <asm/irq.h>
 
 #include <plat/cpu-freq.h>
-
+#include <plat/regs-clock.h>
 #include <plat/clock.h>
 #include <plat/cpu.h>
 
@@ -113,31 +115,37 @@ void clk_put(struct clk *clk)
 
 int clk_enable(struct clk *clk)
 {
+	unsigned long flag;
 	if (IS_ERR(clk) || clk == NULL)
 		return -EINVAL;
 
 	clk_enable(clk->parent);
 
-	spin_lock(&clocks_lock);
+//	spin_lock(&clocks_lock);
+	spin_lock_irqsave(&clocks_lock,flag);
 
 	if ((clk->usage++) == 0)
 		(clk->enable)(clk, 1);
 
-	spin_unlock(&clocks_lock);
+//	spin_unlock(&clocks_lock);
+	spin_unlock_irqrestore(&clocks_lock,flag);
 	return 0;
 }
 
 void clk_disable(struct clk *clk)
 {
+	unsigned long flag;
 	if (IS_ERR(clk) || clk == NULL)
 		return;
 
-	spin_lock(&clocks_lock);
+//	spin_lock(&clocks_lock);
+	spin_lock_irqsave(&clocks_lock,flag);
 
 	if ((--clk->usage) == 0)
 		(clk->enable)(clk, 0);
 
-	spin_unlock(&clocks_lock);
+//	spin_unlock(&clocks_lock);
+	spin_unlock_irqrestore(&clocks_lock,flag);
 	clk_disable(clk->parent);
 }
 
@@ -295,6 +303,118 @@ struct clk clk_usb_bus = {
 	.parent		= &clk_upll,
 };
 
+#if defined(CONFIG_CPU_S5PC100) || defined(CONFIG_CPU_S5P6442)
+
+struct clk clk_hd0 = {
+	.name		= "hclkd0",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+struct clk clk_pd0 = {
+	.name		= "pclkd0",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+#endif
+
+#if defined(CONFIG_CPU_S5P6442)
+
+struct clk clk_hd1 = {
+	.name		= "hclkd1",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+struct clk clk_pd1 = {
+	.name		= "pclkd1",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+#endif
+
+#ifdef CONFIG_CPU_S5PC110
+struct clk clk_vpll = {
+	.name		= "vpll",
+	.id		= -1,
+};
+
+struct clk clk_h200 = {
+	.name		= "hclk200",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+struct clk clk_h100 = {
+	.name		= "hclk100",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+struct clk clk_h166 = {
+	.name		= "hclk166",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+struct clk clk_h133 = {
+	.name		= "hclk133",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+
+struct clk clk_p100 = {
+	.name		= "pclk100",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+struct clk clk_p83 = {
+	.name		= "pclk83",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+
+struct clk clk_p66 = {
+	.name		= "pclk66",
+	.id		= -1,
+	.rate		= 0,
+	.parent		= NULL,
+	.ctrlbit	= 0,
+	.set_rate	= clk_default_setrate,
+};
+#endif
 
 
 struct clk s3c24xx_uclk = {
@@ -357,6 +477,43 @@ int __init s3c24xx_register_baseclocks(unsigned long xtal)
 	if (s3c24xx_register_clock(&clk_f) < 0)
 		printk(KERN_ERR "failed to register cpu fclk\n");
 
+#if defined(CONFIG_CPU_S5PC100) || defined(CONFIG_CPU_S5P6442)
+	if (s3c24xx_register_clock(&clk_hd0) < 0)
+		printk(KERN_ERR "failed to register cpu hclkd0\n");
+
+	if (s3c24xx_register_clock(&clk_pd0) < 0)
+		printk(KERN_ERR "failed to register cpu pclkd0\n");
+#endif
+
+#if defined(CONFIG_CPU_S5P6442)
+	if (s3c24xx_register_clock(&clk_hd1) < 0)
+		printk(KERN_ERR "failed to register cpu hclkd1\n");
+
+	if (s3c24xx_register_clock(&clk_pd1) < 0)
+		printk(KERN_ERR "failed to register cpu pclkd1\n");
+#endif
+
+#ifdef CONFIG_CPU_S5PC110
+        if (s3c24xx_register_clock(&clk_h200) < 0)
+                printk(KERN_ERR "failed to register cpu hclk200\n");
+
+        if (s3c24xx_register_clock(&clk_h100) < 0)
+                printk(KERN_ERR "failed to register cpu hclk100\n");
+
+        if (s3c24xx_register_clock(&clk_h166) < 0)
+                printk(KERN_ERR "failed to register cpu hclk166\n");
+
+        if (s3c24xx_register_clock(&clk_h133) < 0)
+                printk(KERN_ERR "failed to register cpu hclk133\n");
+
+        if (s3c24xx_register_clock(&clk_p100) < 0)
+                printk(KERN_ERR "failed to register cpu pclk100\n");
+
+        if (s3c24xx_register_clock(&clk_p83) < 0)
+                printk(KERN_ERR "failed to register cpu pclk83\n");
+        if (s3c24xx_register_clock(&clk_p66) < 0)
+                printk(KERN_ERR "failed to register cpu pclk66\n");
+#endif
 	if (s3c24xx_register_clock(&clk_h) < 0)
 		printk(KERN_ERR "failed to register cpu hclk\n");
 

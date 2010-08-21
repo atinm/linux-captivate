@@ -21,7 +21,7 @@
  * sync everything.  Start out by waking pdflush, because that writes back
  * all queues in parallel.
  */
-static void do_sync(unsigned long wait)
+/*static*/ void do_sync(unsigned long wait)
 {
 	wakeup_pdflush(0);
 	sync_inodes(0);		/* All mappings, inodes and their blockdevs */
@@ -35,6 +35,7 @@ static void do_sync(unsigned long wait)
 	if (unlikely(laptop_mode))
 		laptop_sync_completion();
 }
+EXPORT_SYMBOL(do_sync);
 
 SYSCALL_DEFINE0(sync)
 {

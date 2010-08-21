@@ -260,7 +260,7 @@ static irqreturn_t armv7_pmnc_interrupt(int irq, void *arg)
 	unsigned int cnt;
 	u32 flags;
 
-
+//	printk("armv7_pmnc_interrupt");
 	/*
 	 * Stop IRQ generation
 	 */
@@ -371,10 +371,15 @@ static int irqs[] = {
 #ifdef CONFIG_ARCH_OMAP3
 	INT_34XX_BENCH_MPU_EMUL,
 #endif
+#ifdef CONFIG_ARCH_S5PC11X
+        IRQ_CORTEX0,
+#endif
+
 };
 
 static void armv7_pmnc_stop(void)
 {
+//	printk("armv7_pmnc_stop");
 #ifdef DEBUG
 	armv7_pmnc_dump_regs();
 #endif
@@ -386,6 +391,7 @@ static int armv7_pmnc_start(void)
 {
 	int ret;
 
+//	printk("armv7_pmnc_start");
 #ifdef DEBUG
 	armv7_pmnc_dump_regs();
 #endif

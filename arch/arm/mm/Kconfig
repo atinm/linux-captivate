@@ -667,7 +667,8 @@ config TLS_REG_EMUL
 config HAS_TLS_REG
 	bool
 	depends on !TLS_REG_EMUL
-	default y if SMP || CPU_32v7
+#	default y if SMP || CPU_32v7
+	default y if (SMP || CPU_32v7) && !ARCH_S5PC11X
 	help
 	  This selects support for the CP15 thread register.
 	  It is defined to be available on some ARMv6 processors (including
@@ -717,3 +718,12 @@ config CACHE_XSC3L2
 	select OUTER_CACHE
 	help
 	  This option enables the L2 cache on XScale3.
+
+config ARM_L1_CACHE_SHIFT
+	int
+	default 6 if ARCH_OMAP3 || ARCH_S5PC11X
+	default 5
+
+
+	
+

@@ -300,6 +300,7 @@ static int wm8580_out_vu(struct snd_kcontrol *kcontrol,
 		((max) << 12) | ((invert) << 20) | ((reg_right) << 24) }
 
 static const struct snd_kcontrol_new wm8580_snd_controls[] = {
+/*
 SOC_WM8580_OUT_DOUBLE_R_TLV("DAC1 Playback Volume",
 			    WM8580_DIGITAL_ATTENUATION_DACL1,
 			    WM8580_DIGITAL_ATTENUATION_DACR1,
@@ -312,6 +313,22 @@ SOC_WM8580_OUT_DOUBLE_R_TLV("DAC3 Playback Volume",
 			    WM8580_DIGITAL_ATTENUATION_DACL3,
 			    WM8580_DIGITAL_ATTENUATION_DACR3,
 			    0, 0xff, 0, dac_tlv),
+*/
+/* trb: The other version leads kernel panic. Difference in the way 
+ * private_data is updated.
+*/
+SOC_DOUBLE_R_TLV("DAC1 Playback Volume",
+                            WM8580_DIGITAL_ATTENUATION_DACL1,
+                            WM8580_DIGITAL_ATTENUATION_DACR1,
+                            0, 0xff, 0, dac_tlv),
+SOC_DOUBLE_R_TLV("DAC2 Playback Volume",
+                            WM8580_DIGITAL_ATTENUATION_DACL2,
+                            WM8580_DIGITAL_ATTENUATION_DACR2,
+                            0, 0xff, 0, dac_tlv),
+SOC_DOUBLE_R_TLV("DAC3 Playback Volume",
+                            WM8580_DIGITAL_ATTENUATION_DACL3,
+                            WM8580_DIGITAL_ATTENUATION_DACR3,
+                            0, 0xff, 0, dac_tlv),
 
 SOC_SINGLE("DAC1 Deemphasis Switch", WM8580_DAC_CONTROL3, 0, 1, 0),
 SOC_SINGLE("DAC2 Deemphasis Switch", WM8580_DAC_CONTROL3, 1, 1, 0),

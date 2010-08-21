@@ -48,7 +48,20 @@ struct s3c24xx_uart_port {
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block		freq_transition;
 #endif
+#if defined(CONFIG_S5P_UART_DMA_EN)
+	unsigned int 			dma_ch_tx;
+	unsigned int 			dma_busy;	//tx
+	unsigned int 			dma_ch_rx;
+	struct circ_buf 		rx_buf;
+	struct timer_list 		rx_dma_timer;
+	dma_addr_t 			rx_buf_dma_handle;
+	dma_addr_t 			dma_phy_pos;	//rx
+#endif
 };
+
+#define S3C_DMA_XFER_BYTE		(1)
+#define UART_RX_SIZE			(PAGE_SIZE)
+#define DMA_RX_FLUSH_JIFFIES		(HZ/150)
 
 /* conversion functions */
 
@@ -75,6 +88,8 @@ extern int s3c24xx_serial_initconsole(struct platform_driver *drv,
 
 extern int s3c24xx_serial_init(struct platform_driver *drv,
 			       struct s3c24xx_uart_info *info);
+
+extern void s3c_setup_uart_cfg_gpio(unsigned char port);
 
 #ifdef CONFIG_SERIAL_SAMSUNG_CONSOLE
 

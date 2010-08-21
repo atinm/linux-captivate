@@ -354,6 +354,12 @@ static struct attribute_group dbs_attr_group = {
 
 /************************** sysfs end ************************/
 
+
+#if defined (CONFIG_CPU_S5PC110)
+extern unsigned int s5pc110_getspeed(unsigned int);
+extern unsigned int get_min_cpufreq(void);
+#endif
+
 static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 {
 	unsigned int max_load_freq;
@@ -432,9 +438,22 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			max_load_freq = load_freq;
 	}
 
+
+#if defined(CONFIG_CPU_S5PC110)
+	policy->cur = s5pc110_getspeed(0);
+	policy->min = get_min_cpufreq();
+#endif
+
 	/* Check for frequency increase */
 	if (max_load_freq > dbs_tuners_ins.up_threshold * policy->cur) {
 		/* if we are already at full speed then break out early */
+#if defined(CONFIG_CPU_S5PC110)
+		if (policy->cur == policy->max)
+			return;
+		__cpufreq_driver_target(policy, policy->max, 
+					CPUFREQ_RELATION_H);
+	
+#else
 		if (!dbs_tuners_ins.powersave_bias) {
 			if (policy->cur == policy->max)
 				return;
@@ -447,6 +466,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			__cpufreq_driver_target(policy, freq,
 				CPUFREQ_RELATION_L);
 		}
+#endif
 		return;
 	}
 
@@ -468,6 +488,11 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				(dbs_tuners_ins.up_threshold -
 				 dbs_tuners_ins.down_differential);
 
+#if defined(CONFIG_CPU_S5PC110)
+		__cpufreq_driver_target(policy, freq_next,
+					CPUFREQ_RELATION_L);
+#else
+
 		if (!dbs_tuners_ins.powersave_bias) {
 			__cpufreq_driver_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
@@ -477,6 +502,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			__cpufreq_driver_target(policy, freq,
 				CPUFREQ_RELATION_L);
 		}
+#endif
 	}
 }
 
@@ -490,7 +516,8 @@ static void do_dbs_timer(struct work_struct *work)
 	/* We want all CPUs to do sampling nearly on same jiffy */
 	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
 
-	delay -= jiffies % delay;
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
 
 	if (lock_policy_rwsem_write(cpu) < 0)
 		return;
@@ -547,7 +574,19 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	unsigned int j;
 	int rc;
 
+
+
 	this_dbs_info = &per_cpu(cpu_dbs_info, cpu);
+
+	if(!kondemand_wq)
+	{
+        	kondemand_wq = create_workqueue("kondemand");
+        	if (!kondemand_wq) {
+                	printk(KERN_ERR "Creation of kondemand failed\n");
+                	return -EFAULT;
+		}
+        }
+
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
@@ -654,11 +693,14 @@ static int __init cpufreq_gov_dbs_init(void)
 		dbs_tuners_ins.down_differential =
 					MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
 	}
-
-	kondemand_wq = create_workqueue("kondemand");
-	if (!kondemand_wq) {
-		printk(KERN_ERR "Creation of kondemand failed\n");
-		return -EFAULT;
+	
+	if(!kondemand_wq)
+	{
+		kondemand_wq = create_workqueue("kondemand");
+		if (!kondemand_wq) {
+			printk(KERN_ERR "Creation of kondemand failed\n");
+			return -EFAULT;
+		}
 	}
 	err = cpufreq_register_governor(&cpufreq_gov_ondemand);
 	if (err)

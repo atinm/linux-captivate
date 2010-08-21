@@ -106,6 +106,10 @@ struct input_absinfo {
 
 #define SYN_REPORT		0
 #define SYN_CONFIG		1
+#define _SUPPORT_MULTITOUCH_
+#ifdef _SUPPORT_MULTITOUCH_
+#define SYN_MT_REPORT	2
+#endif
 
 /*
  * Keys and buttons
@@ -644,6 +648,19 @@ struct input_absinfo {
 #define ABS_TOOL_WIDTH		0x1c
 #define ABS_VOLUME		0x20
 #define ABS_MISC		0x28
+#ifdef _SUPPORT_MULTITOUCH_
+#define ABS_MT_TOUCH           0x30    /* Diameter of touching circle */ 
+#define ABS_MT_TOUCH_MAJOR     0x30    /* Major axis of touching ellipse */ 
+#define ABS_MT_TOUCH_MINOR     0x31    /* Minor axis of touching ellipse */ 
+#define ABS_MT_WIDTH           0x32    /* Diameter of approaching circle */ 
+#define ABS_MT_WIDTH_MAJOR     0x32    /* Major axis of approaching ellipse */ 
+#define ABS_MT_WIDTH_MINOR     0x33    /* Minor axis of approaching ellipse */ 
+#define ABS_MT_ORIENTATION     0x34    /* Ellipse orientation */ 
+#define ABS_MT_POSITION_X      0x35    /* Center X ellipse position */ 
+#define ABS_MT_POSITION_Y      0x36    /* Center Y ellipse position */ 
+#define ABS_MT_TOOL_TYPE       0x37    /* Type of touching device */ 
+#define ABS_MT_BLOB_ID         0x38    /* Group a set of packets as a blob */ 
+#endif
 #define ABS_MAX			0x3f
 #define ABS_CNT			(ABS_MAX+1)
 
@@ -740,6 +757,21 @@ struct input_absinfo {
 #define BUS_HOST		0x19
 #define BUS_GSC			0x1A
 #define BUS_ATARI		0x1B
+
+#ifdef _SUPPORT_MULTITOUCH_
+/* 
+ * MT_TOOL types 
+ */ 
+#define MT_TOOL_FINGER         0 
+#define MT_TOOL_PEN            1 
+#define MT_TOOL_MAX            9 
+#define MT_TOOL_CNT            (MT_TOOL_MAX + 1) 
+#endif
+
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#define KERNEL_SEC_FORCED_UPLOAD_1ST_KEY  50       /*OK KEY*/
+#define KERNEL_SEC_FORCED_UPLOAD_2ND_KEY  42       /*UP KEY*/
+#endif // CONFIG_KERNEL_DEBUG_SEC
 
 /*
  * Values describing the status of a force-feedback effect
@@ -1309,6 +1341,13 @@ static inline void input_sync(struct input_dev *dev)
 {
 	input_event(dev, EV_SYN, SYN_REPORT, 0);
 }
+
+#ifdef _SUPPORT_MULTITOUCH_
+static inline void input_mt_sync(struct input_dev *dev) 
+{ 
+	input_event(dev, EV_SYN, SYN_MT_REPORT, 0); 
+} 
+#endif
 
 void input_set_capability(struct input_dev *dev, unsigned int type, unsigned int code);
 

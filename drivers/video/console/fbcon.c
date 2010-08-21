@@ -2262,10 +2262,12 @@ static void fbcon_generic_blank(struct vc_data *vc, struct fb_info *info,
 		vc->vc_video_erase_char = oldc;
 	}
 
-
+	if(!lock_fb_info(info))	
+		return ;
 	event.info = info;
 	event.data = &blank;
 	fb_notifier_call_chain(FB_EVENT_CONBLANK, &event);
+	unlock_fb_info(info);
 }
 
 static int fbcon_blank(struct vc_data *vc, int blank, int mode_switch)

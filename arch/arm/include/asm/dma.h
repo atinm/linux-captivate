@@ -10,6 +10,7 @@
 #define MAX_DMA_ADDRESS	0xffffffff
 #endif
 
+typedef unsigned int dmach_t;
 #ifdef CONFIG_ISA_DMA_API
 /*
  * This is used to support drivers written for the x86 ISA DMA API.

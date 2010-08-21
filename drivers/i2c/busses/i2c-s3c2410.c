@@ -460,6 +460,8 @@ static int s3c24xx_i2c_set_master(struct s3c24xx_i2c *i2c)
 		if (!(iicstat & S3C2410_IICSTAT_BUSBUSY))
 			return 0;
 
+		writel(iicstat & ~S3C2410_IICSTAT_TXRXEN, i2c->regs + S3C2410_IICSTAT);
+
 		msleep(1);
 	}
 
@@ -513,7 +515,7 @@ static int s3c24xx_i2c_doxfer(struct s3c24xx_i2c *i2c,
 
 	/* ensure the stop has been through the bus */
 
-	msleep(1);
+	udelay(10);
 
  out:
 	return ret;
@@ -750,7 +752,7 @@ static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c)
 
 	writeb(pdata->slave_addr, i2c->regs + S3C2410_IICADD);
 
-	dev_info(i2c->dev, "slave address 0x%02x\n", pdata->slave_addr);
+	dev_dbg(i2c->dev, "slave address 0x%02x\n", pdata->slave_addr);
 
 	writel(iicon, i2c->regs + S3C2410_IICCON);
 
@@ -764,16 +766,11 @@ static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c)
 
 	/* todo - check that the i2c lines aren't being dragged anywhere */
 
-	dev_info(i2c->dev, "bus frequency set to %d KHz\n", freq);
+	dev_dbg(i2c->dev, "bus frequency set to %d KHz\n", freq);
 	dev_dbg(i2c->dev, "S3C2410_IICCON=0x%02lx\n", iicon);
 
-	/* check for s3c2440 i2c controller  */
-
-	if (s3c24xx_i2c_is2440(i2c)) {
 		dev_dbg(i2c->dev, "S3C2440_IICLC=%08x\n", pdata->sda_delay);
-
 		writel(pdata->sda_delay, i2c->regs + S3C2440_IICLC);
-	}
 
 	return 0;
 }
@@ -816,6 +813,7 @@ static int s3c24xx_i2c_probe(struct platform_device *pdev)
 
 	i2c->dev = &pdev->dev;
 	i2c->clk = clk_get(&pdev->dev, "i2c");
+
 	if (IS_ERR(i2c->clk)) {
 		dev_err(&pdev->dev, "cannot get clock\n");
 		ret = -ENOENT;

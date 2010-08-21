@@ -204,6 +204,144 @@ config SPI_SH_SCI
 	help
 	  SPI driver for SuperH SCI blocks.
 
+config SPI_S5PC100
+	tristate "S5PC100 SPI Driver"
+	depends on SPI && CPU_S5PC100
+	select SPI_CNTRLR_0
+	help
+	  Say Y here to include support for SPI controller in the
+	  Samsung S5PC100 based System-on-Chip devices.
+
+config SPI_CNTRLR_0
+	bool
+	depends on SPI_S5PC100
+	default y
+
+config SPI_CNTRLR_1
+	bool "SPI-1 Support"
+	depends on SPI_S5PC100
+	default n
+	help
+	  Say N(recommended). This will initialize two controllers.
+
+#config SPI_CNTRLR_2
+#	bool "SPI-2 Support"
+#	depends on SPI_S5PC100
+#	default n
+#	help
+#	  Say N(recommended). This will initialize three controllers.
+
+choice
+        prompt "SPI Source Clock"
+	depends on SPI_S5PC100
+
+config SPICLK_SRC_PCLK
+	bool "PCLK"
+	help
+	  Say Y if you want to source SPI clock from PCLK.
+
+config SPICLK_SRC_SCLK48M
+	bool "SCLK48M for SPI"
+	help
+	  Say Y if you want to source SPI clock from SCLK48M.
+
+config SPICLK_SRC_EPLL
+	bool "EPLL Clock"
+	help
+	  Say Y if you want to source SPI clock from EPLL.
+
+endchoice
+
+choice
+        prompt "Select EPLL Source"
+	depends on (SPICLK_SRC_EPLL)
+
+config SPICLK_EPLL_MOUTEPLL
+	bool "MOUTepll"
+
+config SPICLK_EPLL_DOUT
+	bool "DOUTmpll"
+
+config SPICLK_EPLL_FIN
+	bool "FINepll"
+
+config SPICLK_EPLL_MOUTHPLL
+	bool "MOUThpll"
+
+endchoice
+
+config SPI_S5PC110
+        tristate "S5PC110 SPI Driver"
+        depends on SPI && CPU_S5PC110
+        select SPI_CNTRLR_0
+        help
+          Say Y here to include support for SPI controller in the
+          Samsung S5PC110 based System-on-Chip devices.
+
+config SPI_CNTRLR_0
+        bool
+        depends on SPI_S5PC110
+        default y
+
+config SPI_CNTRLR_1
+        bool "SPI-1 Support"
+        depends on SPI_S5PC110 && SPI_CNTRLR_0
+        default n
+        help
+          Say N(recommended). This will initialize two controllers.
+
+config SPI_CNTRLR_2
+        bool "SPI-2 Support"
+        depends on SPI_S5PC110 && SPI_CNTRLR_1
+        default n
+        help
+          Say N(recommended). This will initialize three SPI controllers.
+
+choice
+        prompt "SPI Source Clock"
+        depends on SPI_S5PC110
+
+config SPICLK_PCLK
+        bool "PCLK"
+        help
+          Say Y if you want to source SPI clock from PCLK.
+
+config SPICLK_EXT
+        bool "SPI_EXT_CLK"
+        help
+          Say Y if you want to source SPI clock from other Sources.
+
+endchoice
+
+choice
+        prompt "Select EPLL Source"
+        depends on (SPICLK_EXT)
+
+config SPICLK_EXT_MOUT_EPLL
+        bool "MOUTepll"
+
+config SPICLK_EXT_MOUT_MPLL
+        bool "MOUTmpll"
+	help
+	  MPLL clock is 667MHz. Select this only when you are dividing the 
+	  clock appropriately.
+
+config SPICLK_EXT_MOUT_VPLL
+        bool "MOUTvpll"
+
+endchoice
+
+
+
+
+
+
+
+
+
+
+
+
 config SPI_TXX9
 	tristate "Toshiba TXx9 SPI controller"
 	depends on GENERIC_GPIO && CPU_TX49XX

@@ -66,7 +66,7 @@ static unsigned long	minors[N_SPI_MINORS / BITS_PER_LONG];
  * REVISIT should changing those two modes be privileged?
  */
 #define SPI_MODE_MASK		(SPI_CPHA | SPI_CPOL | SPI_CS_HIGH \
-				| SPI_LSB_FIRST | SPI_3WIRE | SPI_LOOP)
+				| SPI_LSB_FIRST | SPI_3WIRE | SPI_LOOP | SPI_SLAVE)
 
 struct spidev_data {
 	dev_t			devt;
@@ -83,7 +83,7 @@ struct spidev_data {
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
-static unsigned bufsiz = 4096;
+static unsigned bufsiz = SPIDEV_MAX_BUFFSIZE; 
 module_param(bufsiz, uint, S_IRUGO);
 MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 

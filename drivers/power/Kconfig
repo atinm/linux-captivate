@@ -21,6 +21,12 @@ config PDA_POWER
 	  Say Y here to enable generic power driver for PDAs and phones with
 	  one or two external power supplies (AC/USB) connected to main and
 	  backup batteries, and optional builtin charger.
+	  
+config BATTERY_S5PC110
+	tristate "Battery driver (S5PC110)"
+	depends on ARCH_S5PC11X 
+	help
+	  Say Y to enable support for batteries with s5pc110 chip.	  
 
 config APM_POWER
 	tristate "APM emulation for class batteries"

@@ -281,6 +281,9 @@ struct freq_attr {
 int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu);
 int cpufreq_update_policy(unsigned int cpu);
 
+ssize_t cpufreq_direct_store_scaling_setspeed(unsigned int cpu, const char *buf, size_t count);
+int cpufreq_direct_set_policy(unsigned int cpu, const char *buf);
+
 /* query the current CPU frequency (in kHz). If zero, cpufreq couldn't detect it */
 unsigned int cpufreq_get(unsigned int cpu);
 

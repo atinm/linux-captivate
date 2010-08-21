@@ -226,8 +226,8 @@
  */
 
 
-/* #define VERBOSE_DEBUG */
-/* #define DUMP_MSGS */
+//#define VERBOSE_DEBUG 
+//#define DUMP_MSGS 
 
 
 #include <linux/blkdev.h>
@@ -3971,6 +3971,7 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 	set_gadget_data(gadget, fsg);
 	fsg->ep0 = gadget->ep0;
 	fsg->ep0->driver_data = fsg;
+
 
 	if ((rc = check_parameters(fsg)) != 0)
 		goto out;

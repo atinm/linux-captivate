@@ -23,11 +23,34 @@
 #include <linux/rcupdate.h>
 #include <linux/smp_lock.h>
 
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+#include <linux/kernel_sec_common.h>
+#endif
+
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
 
 #define INPUT_DEVICES	256
+
+#ifdef _SUPPORT_MULTITOUCH_
+/*
+ * EV_ABS events which should not be cached are listed here.
+ */
+static unsigned int input_abs_bypass_init_data[] __initdata = {
+	ABS_MT_TOUCH_MAJOR,
+	ABS_MT_TOUCH_MINOR,
+	ABS_MT_WIDTH_MAJOR,
+	ABS_MT_WIDTH_MINOR,
+	ABS_MT_ORIENTATION,
+	ABS_MT_POSITION_X,
+	ABS_MT_POSITION_Y,
+	ABS_MT_TOOL_TYPE,
+	ABS_MT_BLOB_ID,
+	0
+};
+#endif /*_SUPPORT_MULTITOUCH_*/
+static unsigned long input_abs_bypass[BITS_TO_LONGS(ABS_CNT)];
 
 static LIST_HEAD(input_dev_list);
 static LIST_HEAD(input_handler_list);
@@ -156,6 +179,12 @@ static void input_handle_event(struct input_dev *dev,
 				disposition = INPUT_PASS_TO_HANDLERS;
 			}
 			break;
+#ifdef _SUPPORT_MULTITOUCH_
+		case SYN_MT_REPORT:
+			dev->sync = 0; 
+			disposition = INPUT_PASS_TO_HANDLERS; 
+			break;
+#endif
 		}
 		break;
 
@@ -184,15 +213,26 @@ static void input_handle_event(struct input_dev *dev,
 
 	case EV_ABS:
 		if (is_event_supported(code, dev->absbit, ABS_MAX)) {
+#ifdef _SUPPORT_MULTITOUCH_
+			if ( code < ABS_MT_TOUCH && code > ABS_MT_BLOB_ID )
+			{
+#endif
+				value = input_defuzz_abs_event(value,
+						dev->abs[code], dev->absfuzz[code]);
 
-			value = input_defuzz_abs_event(value,
-					dev->abs[code], dev->absfuzz[code]);
-
-			if (dev->abs[code] != value) {
+				if (dev->abs[code] != value) {
+					dev->abs[code] = value;
+					disposition = INPUT_PASS_TO_HANDLERS;
+				}
+			}
+#ifdef _SUPPORT_MULTITOUCH_
+			else
+			{
 				dev->abs[code] = value;
 				disposition = INPUT_PASS_TO_HANDLERS;
 			}
 		}
+#endif
 		break;
 
 	case EV_REL:
@@ -267,6 +307,50 @@ void input_event(struct input_dev *dev,
 		 unsigned int type, unsigned int code, int value)
 {
 	unsigned long flags;
+
+/*
+ *  Forced upload mode key string (tkhwang)
+ */
+     
+#ifdef CONFIG_KERNEL_DEBUG_SEC
+
+    static int first=0, second=0;
+
+    if(strcmp(dev->name,"s3c-keypad")==0)
+    {
+        if(value)
+        {
+            if(code==KERNEL_SEC_FORCED_UPLOAD_1ST_KEY)
+            {
+                first =1;
+            }
+            if(first==1 && code==KERNEL_SEC_FORCED_UPLOAD_2ND_KEY)
+            {
+                if ( (KERNEL_SEC_DEBUG_LEVEL_MID == kernel_sec_get_debug_level()) ||
+                	    KERNEL_SEC_DEBUG_LEVEL_HIGH == kernel_sec_get_debug_level() )
+                {
+                    // Display the working callstack for the debugging.
+                    dump_stack();
+
+                    if (kernel_sec_viraddr_wdt_reset_reg)
+                    {
+                       kernel_sec_set_cp_upload();
+                       kernel_sec_save_final_context(); // Save theh final context.
+                       kernel_sec_set_upload_cause(UPLOAD_CAUSE_FORCED_UPLOAD);
+                       kernel_sec_hw_reset(false);      // Reboot.
+                    }
+                 }                
+           }
+        }
+        else
+        {
+            if(code==KERNEL_SEC_FORCED_UPLOAD_1ST_KEY)
+            {
+                first = 0;
+            }
+        }
+    }
+#endif // CONFIG_KERNEL_DEBUG_SEC    
 
 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
 

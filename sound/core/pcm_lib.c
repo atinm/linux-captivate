@@ -29,6 +29,9 @@
 #include <sound/pcm_params.h>
 #include <sound/timer.h>
 
+unsigned int ring_buf_index = 0;
+unsigned int period_index = 0;
+
 /*
  * fill ring buffer with silence
  * runtime->silence_start: starting pointer to silence area
@@ -151,7 +154,7 @@ static inline snd_pcm_uframes_t snd_pcm_update_hw_ptr_pos(struct snd_pcm_substre
 	if (pos == SNDRV_PCM_POS_XRUN)
 		return pos; /* XRUN */
 #ifdef CONFIG_SND_DEBUG
-	if (pos >= runtime->buffer_size) {
+	if (pos >= runtime->buffer_size * ANDROID_BUF_NUM) {
 		snd_printk(KERN_ERR  "BUG: stream = %i, pos = 0x%lx, buffer size = 0x%lx, period size = 0x%lx\n", substream->stream, pos, runtime->buffer_size, runtime->period_size);
 	}
 #endif
@@ -163,6 +166,7 @@ static inline int snd_pcm_update_hw_ptr_post(struct snd_pcm_substream *substream
 					     struct snd_pcm_runtime *runtime)
 {
 	snd_pcm_uframes_t avail;
+	unsigned int stop_threshold;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		avail = snd_pcm_playback_avail(runtime);
@@ -170,11 +174,21 @@ static inline int snd_pcm_update_hw_ptr_post(struct snd_pcm_substream *substream
 		avail = snd_pcm_capture_avail(runtime);
 	if (avail > runtime->avail_max)
 		runtime->avail_max = avail;
-	if (avail >= runtime->stop_threshold) {
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		stop_threshold = runtime->stop_threshold * ANDROID_BUF_NUM;
+	else
+		stop_threshold = runtime->stop_threshold;
+
+	if (avail >= stop_threshold) {
 		if (substream->runtime->status->state == SNDRV_PCM_STATE_DRAINING)
+			{
 			snd_pcm_drain_done(substream);
+			}
 		else
+			{
 			xrun(substream);
+			}
 		return -EPIPE;
 	}
 	if (avail >= runtime->control->avail_min)
@@ -212,7 +226,11 @@ static inline int snd_pcm_update_hw_ptr_interrupt(struct snd_pcm_substream *subs
 			return 0;
 		}
 	      __next_buf:
-		runtime->hw_ptr_base += runtime->buffer_size;
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			runtime->hw_ptr_base += runtime->buffer_size * ANDROID_BUF_NUM;
+		else 
+			runtime->hw_ptr_base += runtime->buffer_size;
+
 		if (runtime->hw_ptr_base == runtime->boundary)
 			runtime->hw_ptr_base = 0;
 		new_hw_ptr = runtime->hw_ptr_base + pos;
@@ -256,6 +274,10 @@ int snd_pcm_update_hw_ptr(struct snd_pcm_substream *substream)
 #endif
 			return 0;
 		}
+		
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			runtime->hw_ptr_base += runtime->buffer_size * ANDROID_BUF_NUM;
+		else 
 		runtime->hw_ptr_base += runtime->buffer_size;
 		if (runtime->hw_ptr_base == runtime->boundary)
 			runtime->hw_ptr_base = 0;
@@ -1574,7 +1596,20 @@ static int snd_pcm_lib_write_transfer(struct snd_pcm_substream *substream,
 		if ((err = substream->ops->copy(substream, -1, hwoff, buf, frames)) < 0)
 			return err;
 	} else {
-		char *hwbuf = runtime->dma_area + frames_to_bytes(runtime, hwoff);
+		char *hwbuf = runtime->dma_area + frames_to_bytes(runtime, hwoff)
+					  + (ring_buf_index * frames_to_bytes(runtime, runtime->buffer_size));
+
+		if(frames == runtime->buffer_size){
+			ring_buf_index = (ring_buf_index + 1) % ANDROID_BUF_NUM;
+		}
+		else if(frames != runtime->buffer_size) {
+		    period_index += frames;
+			if(period_index >= runtime->buffer_size) {
+				ring_buf_index = (ring_buf_index + 1) % ANDROID_BUF_NUM;
+				period_index -= runtime->buffer_size;
+			}
+		}
+
 		if (copy_from_user(hwbuf, buf, frames_to_bytes(runtime, frames)))
 			return -EFAULT;
 	}
@@ -1632,6 +1667,10 @@ static snd_pcm_sframes_t snd_pcm_lib_write1(struct snd_pcm_substream *substream,
 			if (err < 0)
 				goto _end_unlock;
 		}
+		
+		if(avail > runtime->buffer_size)
+			avail = runtime->buffer_size;
+
 		frames = size > avail ? avail : size;
 		cont = runtime->buffer_size - runtime->control->appl_ptr % runtime->buffer_size;
 		if (frames > cont)

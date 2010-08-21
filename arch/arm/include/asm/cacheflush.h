@@ -413,6 +413,14 @@ static inline void flush_anon_page(struct vm_area_struct *vma,
 		__flush_anon_page(vma, page, vmaddr);
 }
 
+#define ARCH_HAS_FLUSH_KERNEL_DCACHE_PAGE
+static inline void flush_kernel_dcache_page(struct page *page)
+{
+	/* highmem pages are always flushed upon kunmap already */
+	if ((cache_is_vivt() || cache_is_vipt_aliasing()) && !PageHighMem(page))
+		__cpuc_flush_dcache_page(page_address(page));
+}
+
 #define flush_dcache_mmap_lock(mapping) \
 	spin_lock_irq(&(mapping)->tree_lock)
 #define flush_dcache_mmap_unlock(mapping) \
@@ -443,6 +451,9 @@ static inline void flush_ioremap_region(unsigned long phys, void __iomem *virt,
  */
 static inline void flush_cache_vmap(unsigned long start, unsigned long end)
 {
+#ifdef CONFIG_CPU_S5PC110
+	flush_cache_all();
+#else
 	if (!cache_is_vipt_nonaliasing())
 		flush_cache_all();
 	else
@@ -451,12 +462,17 @@ static inline void flush_cache_vmap(unsigned long start, unsigned long end)
 		 * have a DSB after cleaning the cache line.
 		 */
 		dsb();
+#endif
 }
 
 static inline void flush_cache_vunmap(unsigned long start, unsigned long end)
 {
+#ifdef CONFIG_CPU_S5PC110
+	flush_cache_all();
+#else
 	if (!cache_is_vipt_nonaliasing())
 		flush_cache_all();
+#endif
 }
 
 #endif

@@ -31,6 +31,11 @@ config CPU_FREQ_DEBUG
 	       2 to activate CPUfreq drivers debugging, and
 	       4 to activate CPUfreq governor debugging
 
+config CPU_FREQ_LOG
+	bool "Enable CPUfreq transition log"
+	help
+	  Say Y here to enable CPUfreq log on running
+	       
 config CPU_FREQ_STAT
 	tristate "CPU frequency translation statistics"
 	select CPU_FREQ_TABLE
@@ -189,5 +194,18 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_MIN_TICKS
+	int "Ticks between governor polling interval."
+	default 10
+	help
+	  Minimum number of ticks between polling interval for governors.
+
+config CPU_FREQ_SAMPLING_LATENCY_MULTIPLIER
+	int "Sampling rate multiplier for governors."
+	default 1000
+	help
+	  Sampling latency rate multiplied by the cpu switch latency.
+	  Affects governor polling.
 
 endif	# CPU_FREQ

@@ -25,7 +25,7 @@ static struct shrinker lowmem_shrinker = {
 	.shrink = lowmem_shrink,
 	.seeks = DEFAULT_SEEKS * 16
 };
-static uint32_t lowmem_debug_level = 2;
+static uint32_t lowmem_debug_level = 1;
 static int lowmem_adj[6] = {
 	0,
 	1,
@@ -40,6 +40,7 @@ static size_t lowmem_minfree[6] = {
 	16*1024, // 64MB
 };
 static int lowmem_minfree_size = 4;
+static int lowmem_file_free = 23500;
 
 #define lowmem_print(level, x...) do { if(lowmem_debug_level >= (level)) printk(x); } while(0)
 
@@ -47,6 +48,7 @@ module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
 module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size, S_IRUGO | S_IWUSR);
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size, S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
+// module_param_named(filefree, lowmem_file_free, int, S_IRUGO | S_IWUSR);
 
 static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 {
@@ -58,36 +60,61 @@ static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 	int min_adj = OOM_ADJUST_MAX + 1;
 	int selected_tasksize = 0;
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	int other_free = global_page_state(NR_FREE_PAGES) + global_page_state(NR_FILE_PAGES);
+	int other_free = global_page_state(NR_FREE_PAGES);
+	/* hs0501.yang Changed criterion of LMK 
+	 * Sometimes, the difference of nr_file_pages and sum of active and inactive file is
+	 *  too big, so it's better to use sum of active & inactive file instead of nr_free_pages.
+	 */
+	//	int other_file = global_page_state(NR_FILE_PAGES);
+	int other_file = global_page_state(NR_INACTIVE_FILE) + global_page_state(NR_ACTIVE_FILE);
+
 	if(lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
+
 	if(lowmem_minfree_size < array_size)
 		array_size = lowmem_minfree_size;
+
 	for(i = 0; i < array_size; i++) {
-		if(other_free < lowmem_minfree[i]) {
+#if 1	// yjjung_20100524, compare the sum of free+file with lowmem_minfree 
+		if (other_free + other_file < lowmem_minfree[i])
+#else 
+		if (other_free < lowmem_minfree[i] && 
+			other_file < lowmem_minfree[i])
+#endif 
+		{
 			min_adj = lowmem_adj[i];
 			break;
 		}
 	}
 	if(nr_to_scan > 0)
-		lowmem_print(3, "lowmem_shrink %d, %x, ofree %d, ma %d\n", nr_to_scan, gfp_mask, other_free, min_adj);
+		lowmem_print(3, "lowmem_shrink %d, %x, ofree %d %d, ma %d\n", nr_to_scan, gfp_mask, other_free, other_file, min_adj);
+	rem = global_page_state(NR_ACTIVE_ANON) +
+		global_page_state(NR_ACTIVE_FILE) +
+		global_page_state(NR_INACTIVE_ANON) +
+		global_page_state(NR_INACTIVE_FILE);
+	if (nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
+		lowmem_print(5, "lowmem_shrink %d, %x, return %d\n", nr_to_scan, gfp_mask, rem);
+		return rem;
+	}
+
 	read_lock(&tasklist_lock);
 	for_each_process(p) {
-		if(p->oomkilladj >= 0 && p->mm) {
-			tasksize = get_mm_rss(p->mm);
-			if(nr_to_scan > 0 && tasksize > 0 && p->oomkilladj >= min_adj) {
-				if(selected == NULL ||
-				   p->oomkilladj > selected->oomkilladj ||
-				   (p->oomkilladj == selected->oomkilladj &&
-				    tasksize > selected_tasksize)) {
-					selected = p;
-					selected_tasksize = tasksize;
-					lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
-					             p->pid, p->comm, p->oomkilladj, tasksize);
-				}
-			}
-			rem += tasksize;
+		if (p->oomkilladj < min_adj || !p->mm)
+			continue;
+		tasksize = get_mm_rss(p->mm);
+		if (tasksize <= 0)
+			continue;
+		if (selected) {
+			if (p->oomkilladj < selected->oomkilladj)
+				continue;
+			if (p->oomkilladj == selected->oomkilladj &&
+			    tasksize <= selected_tasksize)
+				continue;
 		}
+		selected = p;
+		selected_tasksize = tasksize;
+		lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
+		             p->pid, p->comm, p->oomkilladj, tasksize);
 	}
 	if(selected != NULL) {
 		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",

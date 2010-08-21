@@ -149,6 +149,10 @@ config ZONE_DMA
 config GENERIC_ISA_DMA
 	bool
 
+config KEPLER_AUDIO_A1026
+	bool "A1026"
+	default n
+	
 config FIQ
 	bool
 
@@ -528,6 +532,20 @@ config ARCH_S3C64XX
 	help
 	  Samsung S3C64XX series based systems
 
+config ARCH_S5PC1XX
+	bool "Samsung S5PC1XX"
+	select GENERIC_GPIO
+	select HAVE_CLK
+	help
+	  Samsung S5PC1XX series based systems
+
+config ARCH_S5PC11X
+        bool "Samsung S5PC11X"
+        select GENERIC_GPIO
+        select HAVE_CLK
+        help
+          Samsung S5PC11X series based systems
+
 config ARCH_SHARK
 	bool "Shark"
 	select CPU_SA110
@@ -632,6 +650,8 @@ source "arch/arm/mach-kirkwood/Kconfig"
 
 source "arch/arm/plat-s3c24xx/Kconfig"
 source "arch/arm/plat-s3c64xx/Kconfig"
+source "arch/arm/plat-s5pc1xx/Kconfig"
+source "arch/arm/plat-s5pc11x/Kconfig"
 source "arch/arm/plat-s3c/Kconfig"
 
 if ARCH_S3C2410
@@ -646,6 +666,14 @@ endif
 if ARCH_S3C64XX
 source "arch/arm/mach-s3c6400/Kconfig"
 source "arch/arm/mach-s3c6410/Kconfig"
+endif
+
+if ARCH_S5PC1XX
+source "arch/arm/mach-s5pc100/Kconfig"
+endif
+
+if ARCH_S5PC11X
+source "arch/arm/mach-s5pc110/Kconfig"
 endif
 
 source "arch/arm/mach-lh7a40x/Kconfig"
@@ -767,6 +795,37 @@ source "drivers/pcmcia/Kconfig"
 
 endmenu
 
+menu "Samsung Kernel Debug Features"
+
+choice
+	prompt "Enable Samsung Kernel Debug Features"
+	default KERNEL_DEBUG_SEC
+
+config KERNEL_DEBUG_SEC
+	bool "KERNEL_DEBUG_SEC"
+
+endchoice
+
+endmenu
+
+menu "Samsung Kernel Memory Features"
+
+choice
+	prompt "Enable Memory Reserved for WIFI Features"
+	default MEM_RESERVED_WIFI_SEC
+
+config MEM_RESERVED_WIFI_SEC
+	bool "MEM_RESERVED_WIFI_SEC"
+	
+config MEM_RESERVED_WIFI_SEC_SIZE
+	int "Size of Reserved Memory for WIFI"
+	depends on MEM_RESERVED_WIFI_SEC
+	default "256"
+
+endchoice
+
+endmenu
+
 menu "Kernel Features"
 
 source "kernel/time/Kconfig"
@@ -854,7 +913,7 @@ config PREEMPT
 config HZ
 	int
 	default 128 if ARCH_L7200
-	default 200 if ARCH_EBSA110 || ARCH_S3C2410
+	default 200 if ARCH_EBSA110 || ARCH_S3C2410 || ARCH_S5PC1XX || ARCH_S5PC11X
 	default OMAP_32K_TIMER_HZ if ARCH_OMAP && OMAP_32K_TIMER
 	default AT91_TIMER_HZ if ARCH_AT91
 	default 100
@@ -925,7 +984,8 @@ config LEDS
 		   ARCH_OMAP || ARCH_P720T || ARCH_PXA_IDP || \
 		   ARCH_SA1100 || ARCH_SHARK || ARCH_VERSATILE || \
 		   ARCH_AT91 || ARCH_DAVINCI || \
-		   ARCH_KS8695 || MACH_RD88F5182
+		   ARCH_KS8695 || MACH_RD88F5182 || \
+                   MACH_SMDKC100
 	help
 	  If you say Y here, the LEDs on your machine will be used
 	  to provide useful information about your current system status.
@@ -940,7 +1000,9 @@ config LEDS
 config LEDS_TIMER
 	bool "Timer LED" if (!ARCH_CDB89712 && !ARCH_OMAP) || \
 			    OMAP_OSK_MISTRAL || MACH_OMAP_H2 \
-			    || MACH_OMAP_PERSEUS2
+			    || MACH_OMAP_PERSEUS2 || \
+		            MACH_SMDKC100
+
 	depends on LEDS
 	depends on !GENERIC_CLOCKEVENTS
 	default y if ARCH_EBSA110
@@ -959,7 +1021,7 @@ config LEDS_CPU
 	bool "CPU usage LED" if (!ARCH_CDB89712 && !ARCH_EBSA110 && \
 			!ARCH_OMAP) \
 			|| OMAP_OSK_MISTRAL || MACH_OMAP_H2 \
-			|| MACH_OMAP_PERSEUS2
+			|| MACH_OMAP_PERSEUS2 || MACH_SMDKC100
 	depends on LEDS
 	help
 	  If you say Y here, the red LED will be used to give a good real
@@ -1086,7 +1148,7 @@ endmenu
 
 menu "CPU Power Management"
 
-if (ARCH_SA1100 || ARCH_INTEGRATOR || ARCH_OMAP || ARCH_IMX || ARCH_PXA)
+if (ARCH_SA1100 || ARCH_INTEGRATOR || ARCH_OMAP || ARCH_IMX || ARCH_PXA || CPU_S5PC100 || CPU_S5PC110)
 
 source "drivers/cpufreq/Kconfig"
 
@@ -1237,6 +1299,9 @@ if ALIGNMENT_TRAP || !CPU_CP15_MMU
 source "drivers/mtd/Kconfig"
 endif
 
+# for TINY_FSR
+source "drivers/tfsr/Kconfig"
+
 source "drivers/parport/Kconfig"
 
 source "drivers/pnp/Kconfig"
@@ -1313,6 +1378,8 @@ source "drivers/accessibility/Kconfig"
 
 source "drivers/leds/Kconfig"
 
+source "drivers/switch/Kconfig"
+
 source "drivers/rtc/Kconfig"
 
 source "drivers/dma/Kconfig"
@@ -1326,6 +1393,8 @@ source "drivers/regulator/Kconfig"
 source "drivers/uio/Kconfig"
 
 source "drivers/staging/Kconfig"
+
+source "drivers/sensor/Kconfig"
 
 endmenu
 

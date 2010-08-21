@@ -18,3 +18,10 @@ config CPU_IDLE_GOV_MENU
 	bool
 	depends on CPU_IDLE && NO_HZ
 	default y
+
+config CPU_IDLE_MONITORING
+	bool "CPU Idle Monitoring"
+	depends on CPU_IDLE
+	default n
+	help
+	  Support to monitoring idle operation using GPIO output signal and LED blinking.

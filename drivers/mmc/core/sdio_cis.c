@@ -252,9 +252,9 @@ static int sdio_read_cis(struct mmc_card *card, struct sdio_func *func)
 			this->size = tpl_link;
 			*prev = this;
 			prev = &this->next;
-			printk(KERN_DEBUG
-			       "%s: queuing CIS tuple 0x%02x length %u\n",
-			       mmc_hostname(card->host), tpl_code, tpl_link);
+//			printk(KERN_DEBUG
+//			       "%s: queuing CIS tuple 0x%02x length %u\n",
+//			       mmc_hostname(card->host), tpl_code, tpl_link);
 		} else {
 			const struct cis_tpl *tpl = cis_tpl_list + i;
 			if (tpl_link < tpl->min_size) {

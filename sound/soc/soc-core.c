@@ -610,7 +610,26 @@ static int soc_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	}
 	return 0;
 }
+//sayanta added
+static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream )
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+        struct snd_soc_device *socdev = rtd->socdev;
+        struct snd_soc_dai_link *machine = rtd->dai;
+        struct snd_soc_card *card = socdev->card;
+        struct snd_soc_platform *platform = card->platform;
+        struct snd_soc_dai *cpu_dai = machine->cpu_dai;
+        struct snd_soc_dai *codec_dai = machine->codec_dai;
+        struct snd_soc_codec *codec = socdev->codec;
+	snd_pcm_uframes_t ret = 0;
+	
+	if(platform->pcm_ops->pointer){
+		ret = platform->pcm_ops->pointer(substream);
+	}
 
+	return ret;
+	
+} 
 /* ASoC PCM operations */
 static struct snd_pcm_ops soc_pcm_ops = {
 	.open		= soc_pcm_open,
@@ -619,6 +638,7 @@ static struct snd_pcm_ops soc_pcm_ops = {
 	.hw_free	= soc_pcm_hw_free,
 	.prepare	= soc_pcm_prepare,
 	.trigger	= soc_pcm_trigger,
+	.pointer	= soc_pcm_pointer,//sayanta added
 };
 
 #ifdef CONFIG_PM
@@ -1021,7 +1041,7 @@ static int soc_new_pcm(struct snd_soc_device *socdev,
 	dai_link->pcm = pcm;
 	pcm->private_data = rtd;
 	soc_pcm_ops.mmap = platform->pcm_ops->mmap;
-	soc_pcm_ops.pointer = platform->pcm_ops->pointer;
+	//soc_pcm_ops.pointer = platform->pcm_ops->pointer;//sayanta commented
 	soc_pcm_ops.ioctl = platform->pcm_ops->ioctl;
 	soc_pcm_ops.copy = platform->pcm_ops->copy;
 	soc_pcm_ops.silence = platform->pcm_ops->silence;
@@ -1331,6 +1351,7 @@ int snd_soc_new_pcms(struct snd_soc_device *socdev, int idx, const char *xid)
 	/* create the pcms */
 	for (i = 0; i < card->num_links; i++) {
 		ret = soc_new_pcm(socdev, &card->dai_link[i], i);
+		printk("########....asoc: created pcm %s\n",card->dai_link[i].stream_name);
 		if (ret < 0) {
 			printk(KERN_ERR "asoc: can't create pcm %s\n",
 				card->dai_link[i].stream_name);
@@ -2234,7 +2255,7 @@ EXPORT_SYMBOL_GPL(snd_soc_unregister_dai);
 int snd_soc_register_dais(struct snd_soc_dai *dai, size_t count)
 {
 	int i, ret;
-
+	
 	for (i = 0; i < count; i++) {
 		ret = snd_soc_register_dai(&dai[i]);
 		if (ret != 0)
