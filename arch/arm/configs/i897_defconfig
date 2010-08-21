@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.29
-# Sat Aug 21 01:20:05 2010
+# Sat Aug 21 18:54:13 2010
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1485,6 +1485,7 @@ CONFIG_OPTICAL_GP2A=y
 #
 # File systems
 #
+CONFIG_NILFS=y
 CONFIG_EXT2_FS=y
 # CONFIG_EXT2_FS_XATTR is not set
 # CONFIG_EXT2_FS_XIP is not set

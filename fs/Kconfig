@@ -6,6 +6,11 @@ menu "File systems"
 
 if BLOCK
 
+config NILFS
+	tristate "NILFS"
+	help
+	  NILFS
+ 	  
 source "fs/ext2/Kconfig"
 source "fs/ext3/Kconfig"
 source "fs/ext4/Kconfig"
