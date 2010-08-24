@@ -36,4 +36,4 @@ if ! mount -t none -o remount none /dbdata >/dev/null 2>&1 ; then
     fi
 fi
 # Allow init to proceed
-setprop user_init.early_init.completed 1
+read s </sync_fifo

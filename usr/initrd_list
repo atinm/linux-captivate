@@ -1,0 +1,6 @@
+
+#####################
+# /media/external_ext/initrd-hook4
+# Last modified: 1282275482.2278476680
+
+pipe /sync_fifo 644 0 0

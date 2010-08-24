@@ -121,11 +121,8 @@ loglevel 3
 # create SEC_INTERNAL_STORAGE 2/2   
 ##    mount ext3 /dev/block/mmcblk0p1 /userdata nosuid nodev
 mkdir /dbdata
-# start user early init
-    start user_early_init
-# wait for completion
-on property:user_init.early_init.completed=1
-# set /data permissions
+start user_early_init
+write /sync_fifo sync
     chown system system /data
     chmod 0771 /data
    
@@ -172,6 +169,7 @@ chmod 0777 /dbdata/databases
     #chmod 0777 /system/bin/gpsd/glgps_samsungJupiter
     #chmod 0666 /system/lib/libgps.so
     chmod 600 /system/etc/secgps.conf
+    chmod 6777 /system/bin/brcm_dutMode
     
 # create basic filesystem structure
     mkdir /data/misc 01771 system misc
@@ -318,6 +316,7 @@ chmod 0777 /dbdata/databases
 #all operation with rootfs should be finished here, root partition will mounted read-only . d.moskvitin
     mount rootfs rootfs / ro remount
 
+on boot
 # basic network init
     ifup lo
     hostname localhost
@@ -495,22 +494,19 @@ chmod 0777 /dbdata/databases
     chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state
     chown bluetooth bluetooth /sys/class/rfkill/rfkill1/state 
 
-    chmod 6777 /system/bin/brcm_dutMode
 # +++++++++++++++++++++++++++++++++++++++++++
 
-# start user init
     start user_init
-# wait for completion
-on property:user_init.init.completed=1
+    write /sync_fifo
     class_start default
 
 ## Daemon processes to be run by init.
 ##
-service user_early_init /system/bin/sh /user_early_init.sh
+service user_early_init /user_early_init.sh
     oneshot
     disabled
 
-service user_init /system/bin/sh /user_init.sh
+service user_init /user_init.sh
     oneshot
     disabled
 

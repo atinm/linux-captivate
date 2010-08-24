@@ -1,4 +1,5 @@
 #!/system/bin/sh
+# Wait for init event in init.rc to complete
 # Run user init programs. These are run just before class_default is started,
 # so they will have access to the complete environment. All actions are logged
 # to /system/user.log
@@ -16,4 +17,4 @@ if cd /system/etc/init.d >/dev/null 2>&1 ; then
 fi
 echo $(date) USER INIT DONE
 # Allow init to proceed
-setprop user_init.init.completed 1
+read s </sync_fifo
