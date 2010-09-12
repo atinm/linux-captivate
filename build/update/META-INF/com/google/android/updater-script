@@ -1,0 +1,19 @@
+# Flashing kernel from the update.zip
+# Copyright Francois SIMOND
+# License : BSD
+
+ui_print("");
+ui_print("");
+ui_print("Kernel flasher for Kernel version xxx");
+ui_print("Strange characters will appear on screen, this is standard operation");
+
+mount("MTD", "system", "/system");
+# copying needed files in ramdisk
+package_extract_file("redbend_ua", "redbend_ua");
+package_extract_file("zImage", "zImage");
+set_perm(0, 0, 0755, "redbend_ua");
+
+ui_print("Flash Now !");
+# running the flash operation
+run_program("redbend_ua", "restore", "zImage", "/dev/block/bml7");
+

@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
-CROSS_COMPILE="${HOME}/x-tools/arm-none-eabi-4.3.4/bin/arm-none-eabi-"
+AOSP="/data/android/aosp"
+CROSS_COMPILE="${HOME}/arm-none-eabi-4.3.4/bin/arm-none-eabi-"
 MKZIP='7z -mx9 -mmt=1 a "$OUTFILE" .'
 TARGET=i897
 CLEAN=n
@@ -21,9 +22,9 @@ if [ "$CCACHE" ] && ccache -h &>/dev/null ; then
 	echo "Using ccache to speed up compilation."
 	CROSS_COMPILE="$CCACHE $CROSS_COMPILE"
 fi
-echo "Beginning compilation, output redirected to build.log."
+echo "Beginning compilation"
 T1=$(date +%s)
-make ARCH=arm CROSS_COMPILE="$CROSS_COMPILE" zImage >build.log 2>&1
+make ARCH=arm CROSS_COMPILE="$CROSS_COMPILE" zImage
 T2=$(date +%s)
 echo "Compilation took $(($T2 - $T1)) seconds."
 VERSION=$(git describe --tags)
@@ -34,10 +35,17 @@ fi
 if [ "$PRODUCE_ZIP" = y ] ; then
 	echo "Generating $TARGET-$VERSION.zip for flashing as update.zip"
 	rm -fr "$TARGET-$VERSION.zip"
-	cp arch/arm/boot/zImage build/update/kernel_update
+	cp arch/arm/boot/zImage build/update
 	OUTFILE="$PWD/$TARGET-$VERSION.zip"
-	cd build/update
+	pushd build/update
 	eval "$MKZIP" >/dev/null 2>&1
+	popd
+	echo "Signing the update.zip file for flashing"
+	java -jar "$AOSP"/out/host/linux-x86/framework/signapk.jar \
+	    "$AOSP"/build/target/product/security/testkey.x509.pem \
+            "$AOSP"/build/target/product/security/testkey.pk8 \
+	    "$OUTFILE" "$OUTFILE"-signed
+	mv "$OUTFILE"-signed update.zip
 fi
 T3=$(date +%s)
 echo "Packaging took $(($T3 - $T2)) seconds."

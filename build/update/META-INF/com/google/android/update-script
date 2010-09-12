@@ -1,6 +1,0 @@
-show_progress 0.1 0
-copy_dir PACKAGE:kernel_update TMP:/kernel_update
-set_perm 0 0 755 TMP:/kernel_update/redbend_ua
-run_program /tmp/kernel_update/redbend_ua restore /tmp/kernel_update/zImage /dev/block/bml7
-show_progress 0.1 10
-
