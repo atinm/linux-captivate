@@ -6,7 +6,7 @@ MKZIP='7z -mx9 -mmt=1 a "$OUTFILE" .'
 TARGET=i897
 CLEAN=n
 CCACHE="ccache"
-DEFCONFIG=n
+DEFCONFIG=y
 PRODUCE_TAR=n
 PRODUCE_ZIP=y
 export CCACHE_COMPRESS=1
@@ -35,7 +35,7 @@ fi
 if [ "$PRODUCE_ZIP" = y ] ; then
 	echo "Generating $TARGET-$VERSION.zip for flashing as update.zip"
 	rm -fr "$TARGET-$VERSION.zip"
-	cp arch/arm/boot/zImage build/update
+	cp arch/arm/boot/zImage build/update/system/temp/kernel
 	OUTFILE="$PWD/$TARGET-$VERSION.zip"
 	pushd build/update
 	eval "$MKZIP" >/dev/null 2>&1

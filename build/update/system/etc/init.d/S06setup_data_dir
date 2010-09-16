@@ -1,0 +1,14 @@
+/system/xbin/busybox rm /data/app/ChocoEUKor.apk
+/system/xbin/busybox rm /data/app/CoolEUKor.apk
+/system/xbin/busybox rm /data/app/MarketAccess.apk
+/system/xbin/busybox rm /data/app/RoseEUKor.apk
+/system/xbin/busybox rm /data/app/SpareParts.apk
+
+/system/xbin/busybox mv /system/temp/data/app/ChocoEUKor.apk /data/app
+/system/xbin/busybox mv /system/temp/data/app/CoolEUKor.apk /data/app
+/system/xbin/busybox mv /system/temp/data/app/MarketAccess.apk /data/app
+/system/xbin/busybox mv /system/temp/data/app/RoseEUKor.apk /data/app
+/system/xbin/busybox mv /system/temp/data/app/SpareParts.apk /data/app
+
+/system/xbin/busybox rm -R /system/temp
+/system/xbin/busybox rm /system/etc/init.d/S06setup_data_dir

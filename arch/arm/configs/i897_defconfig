@@ -73,7 +73,7 @@ CONFIG_RESOURCE_COUNTERS=y
 # CONFIG_RELAY is not set
 # CONFIG_NAMESPACES is not set
 CONFIG_BLK_DEV_INITRD=y
-CONFIG_INITRAMFS_SOURCE="/data/android/unhelpful-initramfs usr/initrd_list"
+CONFIG_INITRAMFS_SOURCE="/data/android/captivate-voodoo-initramfs usr/initrd_list"
 CONFIG_INITRAMFS_ROOT_UID="squash"
 CONFIG_INITRAMFS_ROOT_GID="squash"
 CONFIG_CC_OPTIMIZE_FOR_SIZE=y
