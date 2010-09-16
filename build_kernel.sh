@@ -1,15 +1,20 @@
 #!/bin/sh
 set -e
-AOSP="/data/android/aosp"
-CROSS_COMPILE="${HOME}/arm-none-eabi-4.3.4/bin/arm-none-eabi-"
-MKZIP='7z -mx9 -mmt=1 a "$OUTFILE" .'
-TARGET=i897
-CLEAN=n
-CCACHE="ccache"
-DEFCONFIG=y
-PRODUCE_TAR=n
-PRODUCE_ZIP=y
-export CCACHE_COMPRESS=1
+[ -z "$BUILD_CONFIG" ] && BUILD_CONFIG="./.build_config"
+source "$BUILD_CONFIG" 
+[ -z "$AOSP" ] && AOSP="/data/android/aosp"
+[ -z "$CROSS_COMPILE" ] && CROSS_COMPILE="${HOME}/arm-none-eabi-4.3.4/bin/arm-none-eabi-"
+[ -z "$MKZIP" ] && MKZIP='7z -mx9 -mmt=1 a "$OUTFILE" .'
+[ -z "$TARGET" ] && TARGET=i897
+[ -z "$CLEAN" ] && CLEAN=n
+[ -z "$CCACHE" ] && CCACHE="ccache"
+[ -z "$DEFCONFIG" ] && DEFCONFIG=y
+[ -z "$PRODUCE_TAR" ] && PRODUCE_TAR=y
+[ -z "$PRODUCE_ZIP" ] && PRODUCE_ZIP=y
+[ -z "$CCACHE_COMPRESS" ] && CCACHE_COMPRESS=1
+export CCACHE_DIR
+export CCACHE_COMPRESS
+
 if [ "$CLEAN" = "y" ] ; then
 	echo "Cleaning source directory."
 	make ARCH=arm clean >/dev/null 2>&1
@@ -24,7 +29,7 @@ if [ "$CCACHE" ] && ccache -h &>/dev/null ; then
 fi
 echo "Beginning compilation"
 T1=$(date +%s)
-make ARCH=arm CROSS_COMPILE="$CROSS_COMPILE" zImage
+make $MAKEOPTS ARCH=arm CROSS_COMPILE="$CROSS_COMPILE" zImage
 T2=$(date +%s)
 echo "Compilation took $(($T2 - $T1)) seconds."
 VERSION=$(git describe --tags)
