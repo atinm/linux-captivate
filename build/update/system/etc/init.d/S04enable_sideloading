@@ -1,2 +1,0 @@
-/system/xbin/sqlite3 /dbdata/databases/com.android.providers.settings/settings.db "update secure set value = 1 where name = 'install_non_market_apps';"
-/system/xbin/busybox rm /system/etc/init.d/S04enable_sideloading
