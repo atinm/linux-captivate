@@ -3,7 +3,7 @@ show_progress(0,0);
 
 ui_print("");
 ui_print("****************************");
-ui_print("*  EXT4 lagfix-beta4-v1.5  *");
+ui_print("*  EXT4 lagfix-beta4-v1.6  *");
 ui_print("*  for Samsung Captivate   *");
 ui_print("*                          *");
 ui_print("*  atinm, Unhelpful,       *");
