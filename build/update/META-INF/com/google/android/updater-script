@@ -13,7 +13,6 @@ ui_print("");
 ui_print("Installing...");
 
 mount("MTD", "system", "/system");
-package_extract_dir("system", "/system");
 
 # copying needed files in ramdisk
 package_extract_file("redbend_ua", "redbend_ua");
