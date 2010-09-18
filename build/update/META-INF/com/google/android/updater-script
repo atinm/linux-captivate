@@ -13,8 +13,6 @@ ui_print("");
 ui_print("Installing...");
 
 mount("MTD", "system", "/system");
-
-delete("/system/etc/asound.conf"); #stupid leftover file
 package_extract_dir("system", "/system");
 
 # copying needed files in ramdisk
