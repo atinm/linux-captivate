@@ -6,7 +6,7 @@ source "$BUILD_CONFIG"
 [ -z "$CROSS_COMPILE" ] && CROSS_COMPILE="${HOME}/arm-none-eabi-4.3.4/bin/arm-none-eabi-"
 [ -z "$MKZIP" ] && MKZIP='7z -mx9 -mmt=1 a "$OUTFILE" .'
 [ -z "$TARGET" ] && TARGET=i897
-[ -z "$CLEAN" ] && CLEAN=n
+[ -z "$CLEAN" ] && CLEAN=y
 [ -z "$CCACHE" ] && CCACHE="ccache"
 [ -z "$DEFCONFIG" ] && DEFCONFIG=y
 [ -z "$PRODUCE_TAR" ] && PRODUCE_TAR=y
@@ -14,6 +14,20 @@ source "$BUILD_CONFIG"
 [ -z "$CCACHE_COMPRESS" ] && CCACHE_COMPRESS=1
 export CCACHE_DIR
 export CCACHE_COMPRESS
+
+echo "=================================="
+echo "Building Captivate kernel with:"
+echo "AOSP = $AOSP"
+echo "CROSS_COMPILE = $CROSS_COMPILE"
+echo "MKZIP = $MKZIP"
+echo "TARGET = $TARGET"
+echo "CLEAN = $CLEAN"
+echo "CCACHE = $CCACHE"
+echo "DEFCONFIG = $DEFCONFIG"
+echo "PRODUCE_TAR = $PRODUCE_TAR"
+echo "PRODUCE_ZIP = $PRODUCE_ZIP"
+echo "CCACHE_COMPRESS = $CCACHE_COMPRESS"
+echo "=================================="
 
 if [ "$CLEAN" = "y" ] ; then
 	echo "Cleaning source directory."
