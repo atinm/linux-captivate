@@ -41,6 +41,7 @@ if [ "$CCACHE" ] && ccache -h &>/dev/null ; then
 	echo "Using ccache to speed up compilation."
 	CROSS_COMPILE="$CCACHE $CROSS_COMPILE"
 fi
+
 echo "Beginning compilation"
 T1=$(date +%s)
 make $MAKEOPTS ARCH=arm CROSS_COMPILE="$CROSS_COMPILE" zImage
