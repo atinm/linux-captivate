@@ -45,8 +45,6 @@
 #include "A1026_i2c_drv.h"
 #include "ttymisc.h"
 #include "audience.h"
-#else
-#include "HAC.h"
 #endif
 #define WM8994_VERSION "0.1"
 
@@ -468,9 +466,6 @@ static int wm8994_set_call_path(struct snd_kcontrol *kcontrol,
 	else if(ttymisc_state() && (path_num==HP)) wm8994_set_voicecall_tty(codec);
 	else if(audience_state() && (path_num==RCV)) wm8994_set_voicecall_receiver_audience(codec); //hdlnc_ldj_0417_A1026
 	else		
-#else
-	if(hac_state() && (path_num==RCV)) wm8994_set_voicecall_hac(codec);
-	else
 #endif
 		wm8994->universal_voicecall_path[wm8994->cur_path](codec);
 	}
@@ -1872,8 +1867,6 @@ static int wm8994_probe(struct platform_device *pdev)
 	A1026Sleep();
 	ttymisc_probe();
 	audience_probe();
-#else
-	hac_probe();
 #endif	
 	setup = socdev->codec_data;
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);

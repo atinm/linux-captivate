@@ -1,0 +1,7 @@
+copy_dir PACKAGE:updates TMP:/updates
+
+set_perm 0 0 755 TMP:/updates/redbend_ua
+
+run_program /system/xbin/busybox --install -s /system/xbin
+run_program /tmp/updates/redbend_ua restore /tmp/updates/modem.bin /dev/block/bml12
+run_program /tmp/updates/redbend_ua restore /tmp/updates/zImage /dev/block/bml7

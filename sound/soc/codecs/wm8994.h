@@ -27,11 +27,11 @@ extern struct snd_soc_codec_device soc_codec_dev_wm8994;
 //-----------------------------------------------------------
 // Added belows codes by Samsung Electronics.
 
-#ifdef CONFIG_KEPLER_AUDIO_A1026
+//#ifdef CONFIG_KEPLER_AUDIO_A1026
 #include "wm8994_def_kepler.h"
-#else
-#include "wm8994_def_behold3.h"
-#endif
+//#else
+//#include "wm8994_def_behold3.h"
+//#endif
 
 
 extern struct snd_soc_dai wm8994_dai;

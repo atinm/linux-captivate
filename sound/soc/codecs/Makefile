@@ -27,7 +27,7 @@ snd-soc-wm8990-objs := wm8990.o
 ifdef CONFIG_KEPLER_AUDIO_A1026
 snd-soc-wm8994-objs := wm8994.o wm8994_kepler.o A1026_i2c_drv.o ttymisc.o audience.o
 else
-snd-soc-wm8994-objs := wm8994.o wm8994_aries.o HAC.o
+snd-soc-wm8994-objs := wm8994.o wm8994_aries.o
 endif
 snd-soc-wm9712-objs := wm9712.o
 snd-soc-wm9713-objs := wm9713.o
