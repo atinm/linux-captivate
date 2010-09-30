@@ -2,17 +2,23 @@ assert(getprop("ro.product.device") == "SGH-I897" || getprop("ro.build.product")
 show_progress(0,0);
 
 ui_print("");
-ui_print("****************************");
-ui_print("*  EXT4 lagfix-beta4-v1.9  *");
-ui_print("*  for Samsung Captivate   *");
-ui_print("*                          *");
-ui_print("*  atinm, Unhelpful,       *");
-ui_print("*  supercurio!             *");
-ui_print("****************************");
+ui_print("***********************************");
+ui_print("*  EXT4 lagfix-beta4-v1.10        *");
+ui_print("*  plus Backlight notification    *");
+ui_print("*  for Samsung Captivate          *");
+ui_print("*                                 *");
+ui_print("*  atinm, Unhelpful, neldar       *");
+ui_print("*  supercurio!                    *");
+ui_print("***********************************");
 ui_print("");
 ui_print("Installing...");
 
 mount("MTD", "system", "/system");
+
+# installing lights.default.so
+delete("/system/lib/hw/lights.default.so");
+package_extract_dir("system", "/system");
+set_perm(0, 0, 0755, "/system/lib/hw/lights.default.so");
 
 # copying needed files in ramdisk
 package_extract_file("redbend_ua", "redbend_ua");
