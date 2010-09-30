@@ -70,7 +70,36 @@ if [ "$PRODUCE_ZIP" = y ] ; then
 		"$AOSP"/build/target/product/security/testkey.x509.pem \
 		"$AOSP"/build/target/product/security/testkey.pk8 \
 		"$OUTFILE" "$OUTFILE"-signed
-	    mv "$OUTFILE"-signed update.zip
+	    cp "$OUTFILE"-signed update.zip
+	    mv "$OUTFILE"-signed "$OUTFILE"
+
+	    echo "Building $TARGET-revert.zip"
+	    cp arch/arm/boot/zImage build/captivate-revert/updates
+	    OUTFILE="$PWD/$TARGET-revert.zip"
+	    pushd build/captivate-revert
+	    eval "$MKZIP" >/dev/null 2>&1
+	    popd
+	    java -jar "$AOSP"/out/host/linux-x86/framework/signapk.jar \
+		"$AOSP"/build/target/product/security/testkey.x509.pem \
+		"$AOSP"/build/target/product/security/testkey.pk8 \
+		"$OUTFILE" "$OUTFILE"-signed
+	    mv "$OUTFILE"-signed "$OUTFILE"
+
+	elif [ "$TARGET" = "i897_nobln" ]; then
+	    echo "Generating $TARGET-$VERSION.zip for flashing as update.zip"
+	    rm -fr "$TARGET-$VERSION.zip"
+	    cp arch/arm/boot/zImage build/nobln
+	    OUTFILE="$PWD/$TARGET-$VERSION.zip"
+	    pushd build/nobln
+	    eval "$MKZIP" >/dev/null 2>&1
+	    popd
+	    echo "Signing the update.zip file for flashing"
+	    java -jar "$AOSP"/out/host/linux-x86/framework/signapk.jar \
+		"$AOSP"/build/target/product/security/testkey.x509.pem \
+		"$AOSP"/build/target/product/security/testkey.pk8 \
+		"$OUTFILE" "$OUTFILE"-signed
+	    cp "$OUTFILE"-signed update.zip
+	    mv "$OUTFILE"-signed "$OUTFILE"
 
 	    echo "Building $TARGET-revert.zip"
 	    cp arch/arm/boot/zImage build/captivate-revert/updates

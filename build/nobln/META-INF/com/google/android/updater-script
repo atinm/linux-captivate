@@ -1,0 +1,36 @@
+assert(getprop("ro.product.device") == "SGH-I897" || getprop("ro.build.product") == "SGH-I897");
+show_progress(0,0);
+
+ui_print("");
+ui_print("***********************************");
+ui_print("*  EXT4 lagfix-beta4-v1.10        *");
+ui_print("*  plus Backlight notification    *");
+ui_print("*  for Samsung Captivate          *");
+ui_print("*                                 *");
+ui_print("*  atinm, Unhelpful, neldar       *");
+ui_print("*  supercurio!                    *");
+ui_print("***********************************");
+ui_print("");
+ui_print("Installing...");
+
+mount("MTD", "system", "/system");
+
+# copying needed files in ramdisk
+package_extract_file("redbend_ua", "redbend_ua");
+package_extract_file("zImage", "zImage");
+set_perm(0, 0, 0755, "redbend_ua");
+
+# mount the sdcards anyway
+mount("vfat", "/dev/block/mmcblk0p1", "/sdcard");
+mount("vfat", "/dev/block/mmcblk1", "/sdcard/sd");
+
+# backup first
+ui_print("Doing 2 backup of the current kernel to the internal (and external if present) SD card(s)");
+run_program("/system/bin/dd", "if=/dev/block/bml7", "of=/sdcard/bml7-zImage-kernel-backup.img");
+run_program("/system/bin/dd", "if=/dev/block/bml7", "of=/sdcard/sd/bml7-zImage-kernel-backup.img");
+unmount("/sdcard/sd");
+unmount("/sdcard");
+
+ui_print("Flash Now !");
+# running the flash operation
+run_program("redbend_ua", "restore", "zImage", "/dev/block/bml7");
