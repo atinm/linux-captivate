@@ -363,7 +363,7 @@ config KEYPAD_CYPRESS_TOUCH
 	  module will be called melfas-touchkey.
 	 
 config KEYPAD_CYPRESS_TOUCH_NO_BLN
-	tristate "Cypress touch keypad w/ backlight support"
+	tristate "Cypress touch keypad w/out backlight support"
 	default n
 	help
 	  Say Y here if you want to use the Cypress touch keypad w/ backlight support.
