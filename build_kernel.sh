@@ -44,7 +44,7 @@ if [ "$DEFCONFIG" = "y" -o ! -f ".config" ] ; then
 	echo "Using default configuration for $TARGET"
 	make ARCH=arm ${TARGET}_defconfig >/dev/null 2>&1
 fi
-if [ "$CCACHE" ] && ccache -h &>/dev/null ; then
+if [ ! "$CCACHE" = 0 ] && $CCACHE -h &>/dev/null ; then
 	echo "Using ccache to speed up compilation."
 	CROSS_COMPILE="$CCACHE $CROSS_COMPILE"
 fi
