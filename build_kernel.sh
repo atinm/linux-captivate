@@ -13,6 +13,7 @@ source "$BUILD_CONFIG"
 [ -z "$PRODUCE_ZIP" ] && PRODUCE_ZIP=y
 [ -z "$CCACHE_COMPRESS" ] && CCACHE_COMPRESS=1
 [ -z "$VERSION" ] && VERSION="testing"
+[ -z "$MODULES" ] && MODULES=n
 [ -z "$KBUILD_BUILD_VERSION" ] && KBUILD_BUILD_VERSION="Voodoo3.0-$TARGET-$VERSION"
 export CCACHE_DIR
 export CCACHE_COMPRESS
@@ -30,6 +31,8 @@ echo "DEFCONFIG = $DEFCONFIG"
 echo "PRODUCE_TAR = $PRODUCE_TAR"
 echo "PRODUCE_ZIP = $PRODUCE_ZIP"
 echo "CCACHE_COMPRESS = $CCACHE_COMPRESS"
+echo "VERSION = $VERSION"
+echo "MODULES = $MODULES"
 echo "KBUILD_BUILD_VERSION = $KBUILD_BUILD_VERSION"
 echo "============================================="
 
@@ -51,6 +54,10 @@ T1=$(date +%s)
 make $MAKEOPTS ARCH=arm CROSS_COMPILE="$CROSS_COMPILE" zImage
 T2=$(date +%s)
 echo "Compilation took $(($T2 - $T1)) seconds."
+if [ "$MODULES" = y ] ; then
+    make $MAKEOPTS ARCH=arm CROSS_COMPILE="$CROSS_COMPILE" modules
+fi
+
 if [ "$PRODUCE_TAR" = y ] ; then
 	echo "Generating $TARGET-$VERSION.tar for flashing with Odin"
 	tar c -C arch/arm/boot zImage >"$TARGET-$VERSION.tar"
